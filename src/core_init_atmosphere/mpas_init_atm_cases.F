@@ -2651,6 +2651,8 @@ module init_atm_cases
       real (kind=RKIND), dimension(:), pointer :: rh2
       real (kind=RKIND), dimension(:), pointer :: t2m
 
+      logical, parameter :: fixed_levels = .true.
+
       character (len=StrKIND) :: errstring
 
       call mpas_pool_get_config(configs, 'config_met_prefix', config_met_prefix)
@@ -2940,6 +2942,8 @@ module init_atm_cases
 
 !     Metrics for hybrid coordinate and vertical stretching
 
+      kz = nz
+
       if (config_tc_vertical_grid) then
 
          call mpas_log_write('Setting up vertical levels as in 2014 TC experiments')
@@ -2986,6 +2990,14 @@ module init_atm_cases
             if (k > 1) dzw(k-1) = zw(k)-zw(k-1)
          end do
 
+      else if( fixed_levels ) then
+
+         call mpas_log_write('Using hardwired fixed levels')
+
+         zt = config_ztop
+         dz = zt/float(nz1)
+         call levels_fixed(zw,nz,kz)
+
       else
 
          call mpas_log_write('Setting up vertical levels as in MPAS 2.0 and earlier')
@@ -3007,15 +3019,15 @@ module init_atm_cases
 !           ah(k) = 0           is a height coordinate
  
       hybrid = .true.
-!      hybrid = .false.
+      ah(:) = 0.0
 
-      kz = nz
+
       if (hybrid) then
       
          zh = 30000.0
 !         zh = 0.5*zt
 
-         do k=1,nz
+         do k=1,kz
             if (zw(k) < zh) then
                ah(k) = cos(.5*pii*zw(k)/zh)**6
 
@@ -3097,7 +3109,8 @@ module init_atm_cases
             do i=1,config_nsm + k
                do iCell=1,nCells
 
-                  sm = sm0(iCell) * min((3.0*zw(k)/zt)**2.0, 1.0_RKIND)
+                  !!! sm = sm0(iCell) * min((3.0*zw(k)/zt)**2.0, 1.0_RKIND)
+                  sm = sm0(iCell) * min((3.0*zw(k)/zh)**2.0, 1.0_RKIND)
 
                   hs1(iCell) = 0.
                   do j = 1,nEdgesOnCell(iCell)
@@ -5191,5 +5204,156 @@ call mpas_log_write('Done with soil consistency check')
       end do
 
    end subroutine decouple_variables
+
+subroutine levels_fixed(zw,nVertLevelsP1,kz)
+  implicit none
+  integer :: nVertLevelsP1,kz
+  real (kind=RKIND), dimension(nVertLevelsP1) :: zw
+
+  integer :: k
+
+  if (nVertlevelsP1 == 56) then  ! default configuration - model top at 30 km
+
+  kz = 56
+  zw(1) =0.00000000000000
+  zw(2) =46.9369730361466
+  zw(3) =106.239585942065
+  zw(4) =178.372652141247
+  zw(5) =263.800985057184
+  zw(6) =362.989398113365
+  zw(7) =476.402704733284
+  zw(8) =604.505718340429
+  zw(9) =747.763252358294
+  zw(10) =906.640120210369
+  zw(11) =1081.60113532014
+  zw(12) =1273.11111111111
+  zw(13) =1481.63486100676
+  zw(14) =1707.63719843059
+  zw(15) =1951.58293680608
+  zw(16) =2213.93688955673
+  zw(17) =2495.16387010602
+  zw(18) =2795.72869187745
+  zw(19) =3116.09616829452
+  zw(20) =3456.73111278070
+  zw(21) =3818.09833875950
+  zw(22) =4200.66265965440
+  zw(23) =4604.88888888889
+  zw(24) =5031.24183988647
+  zw(25) =5480.18632607063
+  zw(26) =5952.18716086485
+  zw(27) =6447.70915769263
+  zw(28) =6967.21712997746
+  zw(29) =7511.17589114284
+  zw(30) =8080.05025461224
+  zw(31) =8674.30503380917
+  zw(32) =9294.40504215712
+  zw(33) =9940.81509307956
+  zw(34) =10614.0000000000
+  zw(35) =11314.4245763419
+  zw(36) =12042.5536355288
+  zw(37) =12798.8519909842
+  zw(38) =13583.7844561316
+  zw(39) =14397.8158443944
+  zw(40) =15241.4109691961
+  zw(41) =16115.0346439603
+  zw(42) =17019.1516821104
+  zw(43) =17945.4545454545
+  zw(44) =18872.7272727273
+  zw(45) =19800.0000000000
+  zw(46) =20727.2727272727
+  zw(47) =21654.5454545455
+  zw(48) =22581.8181818182
+  zw(49) =23509.0909090909
+  zw(50) =24436.3636363636
+  zw(51) =25363.6363636364
+  zw(52) =26290.9090909091
+  zw(53) =27218.1818181818
+  zw(54) =28145.4545454545
+  zw(55) =29072.7272727273
+  zw(56) =30000.0000000000
+
+  else if (nVertlevelsP1 == 71) then  ! default configuration except  model top at 45 km
+
+  kz = 56
+  zw(1) =0.00000000000000
+  zw(2) =46.9369730361466
+  zw(3) =106.239585942065
+  zw(4) =178.372652141247
+  zw(5) =263.800985057184
+  zw(6) =362.989398113365
+  zw(7) =476.402704733284
+  zw(8) =604.505718340429
+  zw(9) =747.763252358294
+  zw(10) =906.640120210369
+  zw(11) =1081.60113532014
+  zw(12) =1273.11111111111
+  zw(13) =1481.63486100676
+  zw(14) =1707.63719843059
+  zw(15) =1951.58293680608
+  zw(16) =2213.93688955673
+  zw(17) =2495.16387010602
+  zw(18) =2795.72869187745
+  zw(19) =3116.09616829452
+  zw(20) =3456.73111278070
+  zw(21) =3818.09833875950
+  zw(22) =4200.66265965440
+  zw(23) =4604.88888888889
+  zw(24) =5031.24183988647
+  zw(25) =5480.18632607063
+  zw(26) =5952.18716086485
+  zw(27) =6447.70915769263
+  zw(28) =6967.21712997746
+  zw(29) =7511.17589114284
+  zw(30) =8080.05025461224
+  zw(31) =8674.30503380917
+  zw(32) =9294.40504215712
+  zw(33) =9940.81509307956
+  zw(34) =10614.0000000000
+  zw(35) =11314.4245763419
+  zw(36) =12042.5536355288
+  zw(37) =12798.8519909842
+  zw(38) =13583.7844561316
+  zw(39) =14397.8158443944
+  zw(40) =15241.4109691961
+  zw(41) =16115.0346439603
+  zw(42) =17019.1516821104
+  zw(43) =17945.4545454545
+  zw(44) =18872.7272727273
+  zw(45) =19800.0000000000
+  zw(46) =20727.2727272727
+  zw(47) =21654.5454545455
+  zw(48) =22581.8181818182
+  zw(49) =23509.0909090909
+  zw(50) =24436.3636363636
+  zw(51) =25363.6363636364
+  zw(52) =26290.9090909091
+  zw(53) =27218.1818181818
+  zw(54) =28145.4545454545
+  zw(55) =29072.7272727273
+  zw(56) =30000.0000000000
+  zw(57) =31000.0000000000
+  zw(58) =32000.0000000000
+  zw(59) =33000.0000000000
+  zw(60) =34000.0000000000
+  zw(61) =35000.0000000000
+  zw(62) =36000.0000000000
+  zw(63) =37000.0000000000
+  zw(64) =38000.0000000000
+  zw(65) =39000.0000000000
+  zw(66) =40000.0000000000
+  zw(67) =41000.0000000000
+  zw(68) =42000.0000000000
+  zw(69) =43000.0000000000
+  zw(70) =44000.0000000000
+  zw(71) =45000.0000000000
+
+  else
+
+    call mpas_log_write('no configuration for nVertLevelsP1')
+    stop
+
+  end if
+
+  end subroutine levels_fixed
 
 end module init_atm_cases
