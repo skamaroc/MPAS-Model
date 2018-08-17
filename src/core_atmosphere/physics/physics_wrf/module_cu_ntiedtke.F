@@ -57,7 +57,6 @@ module module_cu_ntiedtke
      implicit none
      real,private :: t13,rcpd,vtmpc1,tmelt,            &
              c1es,c2es,c3les,c3ies,c4les,c4ies,c5les,c5ies,zrg
-
      real,private :: r5alvcp,r5alscp,ralvdcp,ralsdcp,ralfdcp,rtwat,rtber,rtice 
      real,private :: entrdd,cmfcmax,cmfcmin,cmfdeps,zdnoprc,cprcon,pgcoef
      integer,private :: momtrans
@@ -221,6 +220,7 @@ contains
                                         dt
       real,    dimension(ims:ime, jms:jme), intent(in) ::               &
                                         dx
+
 
       real,    dimension(ims:ime, jms:jme), intent(in) ::               &
                                         xland
