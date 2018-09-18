@@ -360,9 +360,9 @@
 <!-- **************************************************************************************** -->
 
 	<streams>
-		<stream name="input" 
+		<stream name="static" 
                         type="input" 
-                        filename_template="x1.40962.init.nc" 
+                        filename_template="x1.40962.static.nc" 
                         input_interval="initial_only"
                         immutable="true">
 
@@ -420,7 +420,6 @@
 			<var name="zz"/>
 			<var name="zb"/>
 			<var name="zb3"/>
-			<var name="dss"/>
 			<var name="u_init"/>
 			<var name="t_init"/>
 			<var name="qv_init"/>
@@ -428,6 +427,35 @@
 			<var name="defc_a"/>
 			<var name="defc_b"/>
 			<var name="coeffs_reconstruct"/>
+			<var name="var2d"/>
+			<var name="con"/>
+			<var name="oa1"/>
+			<var name="oa2"/>
+			<var name="oa3"/>
+			<var name="oa4"/>
+			<var name="ol1"/>
+			<var name="ol2"/>
+			<var name="ol3"/>
+			<var name="ol4"/>
+			<var name="isltyp"/>
+			<var name="ivgtyp"/>
+			<var name="mminlu"/>
+			<var name="landmask"/>
+			<var name="shdmin"/>
+			<var name="shdmax"/>
+			<var name="snoalb"/>
+			<var name="albedo12m"/>
+			<var name="greenfrac"/>
+			<var name="pin"/>
+			<var name="ozmixm"/>
+		</stream>
+
+		<stream name="input" 
+                        type="input" 
+                        filename_template="x1.40962.init.nc" 
+                        input_interval="initial_only"
+                        immutable="true">
+
 			<var_array name="scalars"/>
 			<var name="initial_time"/>
 			<var name="xtime"/>
@@ -439,15 +467,6 @@
 			<var name="rho_base"/>
 			<var name="theta_base"/>
 			<var name="surface_pressure"/>
-			<var name="isltyp"/>
-			<var name="ivgtyp"/>
-			<var name="mminlu"/>
-			<var name="landmask"/>
-			<var name="shdmin"/>
-			<var name="shdmax"/>
-			<var name="snoalb"/>
-			<var name="albedo12m"/>
-			<var name="greenfrac"/>
 			<var name="sfc_albbck"/>
 			<var name="skintemp"/>
 			<var name="snow"/>
@@ -468,16 +487,6 @@
 			<var name="sh2o"/>
 			<var name="smois"/>
 			<var name="tslb"/>
-			<var name="var2d"/>
-			<var name="con"/>
-			<var name="oa1"/>
-			<var name="oa2"/>
-			<var name="oa3"/>
-			<var name="oa4"/>
-			<var name="ol1"/>
-			<var name="ol2"/>
-			<var name="ol3"/>
-			<var name="ol4"/>
 			<var name="h_oml_initial"/>
 		</stream>
 
@@ -488,72 +497,6 @@
                         output_interval="1_00:00:00" 
                         immutable="true">
 
-			<var name="latCell"/>
-			<var name="lonCell"/>
-			<var name="xCell"/>
-			<var name="yCell"/>
-			<var name="zCell"/>
-			<var name="indexToCellID"/>
-			<var name="latEdge"/>
-			<var name="lonEdge"/>
-			<var name="xEdge"/>
-			<var name="yEdge"/>
-			<var name="zEdge"/>
-			<var name="indexToEdgeID"/>
-			<var name="latVertex"/>
-			<var name="lonVertex"/>
-			<var name="xVertex"/>
-			<var name="yVertex"/>
-			<var name="zVertex"/>
-			<var name="indexToVertexID"/>
-			<var name="cellsOnEdge"/>
-			<var name="nEdgesOnCell"/>
-			<var name="nEdgesOnEdge"/>
-			<var name="edgesOnCell"/>
-			<var name="edgesOnEdge"/>
-			<var name="weightsOnEdge"/>
-			<var name="dvEdge"/>
-			<var name="dcEdge"/>
-			<var name="angleEdge"/>
-			<var name="areaCell"/>
-			<var name="areaTriangle"/>
-			<var name="edgeNormalVectors"/>
-			<var name="localVerticalUnitVectors"/>
-			<var name="cellTangentPlane"/>
-			<var name="cellsOnCell"/>
-			<var name="verticesOnCell"/>
-			<var name="verticesOnEdge"/>
-			<var name="edgesOnVertex"/>
-			<var name="cellsOnVertex"/>
-			<var name="kiteAreasOnVertex"/>
-			<var name="fEdge"/>
-			<var name="fVertex"/>
-			<var name="meshDensity"/>
-			<var name="meshScalingDel2"/>
-			<var name="meshScalingDel4"/>
-			<var name="cf1"/>
-			<var name="cf2"/>
-			<var name="cf3"/>
-			<var name="zgrid"/>
-			<var name="rdzw"/>
-			<var name="dzu"/>
-			<var name="rdzu"/>
-			<var name="fzm"/>
-			<var name="fzp"/>
-			<var name="zxu"/>
-			<var name="zz"/>
-			<var name="zb"/>
-			<var name="zb3"/>
-			<var name="dss"/>
-			<var name="u_init"/>
-			<var name="t_init"/>
-			<var name="qv_init"/>
-			<var name="deriv_two"/>
-			<var name="defc_a"/>
-			<var name="defc_b"/>
-			<var name="coeffs_reconstruct"/>
-			<var name="east"/>
-			<var name="north"/>
 			<var_array name="scalars"/>
 			<var name="rainprod" packages="mp_thompson_in"/>
 			<var name="evapprod" packages="mp_thompson_in"/>
@@ -753,17 +696,6 @@
 			<var name="rniblten"/>
 			<var name="rthratensw"/>
 			<var name="rthratenlw"/>
-			<var name="pin"/>
-			<var name="ozmixm"/>
-			<var name="isltyp"/>
-			<var name="ivgtyp"/>
-			<var name="mminlu"/>
-			<var name="landmask"/>
-			<var name="shdmin"/>
-			<var name="shdmax"/>
-			<var name="snoalb"/>
-			<var name="albedo12m"/>
-			<var name="greenfrac"/>
 			<var name="sfc_albbck"/>
 			<var name="skintemp"/>
 			<var name="snow"/>
@@ -780,16 +712,6 @@
 			<var name="sh2o"/>
 			<var name="smois"/>
 			<var name="tslb"/>
-			<var name="var2d"/>
-			<var name="con"/>
-			<var name="oa1"/>
-			<var name="oa2"/>
-			<var name="oa3"/>
-			<var name="oa4"/>
-			<var name="ol1"/>
-			<var name="ol2"/>
-			<var name="ol3"/>
-			<var name="ol4"/>
 			<var name="t_oml"/>
 			<var name="t_oml_initial"/>
 			<var name="t_oml_200m_initial"/>
