@@ -5376,7 +5376,8 @@ module atm_time_integration
          do k=1,nVertLevels
             tend_theta(k,iCell) = tend_theta(k,iCell)*invAreaCell(iCell) -rdzw(k)*(wdtz(k+1)-wdtz(k))
             ! tend_rtheta_adv(k,iCell) = tend_theta(k,iCell)   !  this was for the Tiedke scheme, no longer used
-            rthdynten(k,iCell) = tend_theta(k,iCell)/rho_zz(k,iCell)  !  this is for the Grell-Freitas and (n)Tiedtke schemes
+            ! rthdynten for the Grell-Freitas and (n)Tiedtke schemes
+            rthdynten(k,iCell) = (tend_theta(k,iCell)-tend_rho(k,iCell)*theta_m(k,iCell))/rho_zz(k,iCell)  
             tend_theta(k,iCell) = tend_theta(k,iCell) + rho_zz(k,iCell)*rt_diabatic_tend(k,iCell)
          end do
       end do
