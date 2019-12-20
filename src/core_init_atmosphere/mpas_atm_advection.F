@@ -758,6 +758,8 @@ module atm_advection
 !  local variables
 
       real (kind=RKIND), dimension(:,:), pointer :: defc_a, defc_b
+      real (kind=RKIND), dimension(:,:), pointer :: deformation_coef_c2, deformation_coef_s2, deformation_coef_cs
+      real (kind=RKIND), dimension(:,:), pointer :: deformation_coef_c, deformation_coef_s
       integer, dimension(:,:), pointer :: cellsOnEdge, edgesOnCell, cellsOnCell, verticesOnCell
       integer, dimension(:), pointer :: nEdgesOnCell
       real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
@@ -964,9 +966,19 @@ module atm_advection
             sint_cost = sin(thetat(i))*cos(thetat(i))
             defc_a(i,iCell) = dl*(cost2 - sint2)/area_cell
             defc_b(i,iCell) = dl*2.*sint_cost/area_cell
+            deformation_coef_c2(i,iCell) = dl*cost2/area_cell
+            deformation_coef_s2(i,iCell) = dl*sint2/area_cell
+            deformation_coef_cs(i,iCell) = dl*sint_cost/area_cell
+            deformation_coef_c(i,iCell) = dl*cos(thetat(i))/area_cell
+            deformation_coef_s(i,iCell) = dl*sin(thetat(i))/area_cell
             if (cellsOnEdge(1,EdgesOnCell(i,iCell)) /= iCell) then
                defc_a(i,iCell) = - defc_a(i,iCell)
                defc_b(i,iCell) = - defc_b(i,iCell)
+               deformation_coef_c2(i,iCell) = - deformation_coef_c2(i,iCell)
+               deformation_coef_s2(i,iCell) = - deformation_coef_s2(i,iCell)
+               deformation_coef_cs(i,iCell) = - deformation_coef_cs(i,iCell)
+               deformation_coef_c(i,iCell) = - deformation_coef_c(i,iCell)
+               deformation_coef_s(i,iCell) = - deformation_coef_s(i,iCell)
             end if
  
          end do
