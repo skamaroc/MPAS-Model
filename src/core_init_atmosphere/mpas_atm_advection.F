@@ -794,6 +794,11 @@ module atm_advection
 
       call mpas_pool_get_array(mesh, 'defc_a', defc_a)
       call mpas_pool_get_array(mesh, 'defc_b', defc_b)
+      call mpas_pool_get_array(mesh, 'deformation_coef_c2', deformation_coef_c2)
+      call mpas_pool_get_array(mesh, 'deformation_coef_s2', deformation_coef_s2)
+      call mpas_pool_get_array(mesh, 'deformation_coef_cs', deformation_coef_cs)
+      call mpas_pool_get_array(mesh, 'deformation_coef_c', deformation_coef_c)
+      call mpas_pool_get_array(mesh, 'deformation_coef_s', deformation_coef_s)
       call mpas_pool_get_array(mesh, 'nEdgesOnCell', nEdgesOnCell)
       call mpas_pool_get_array(mesh, 'cellsOnEdge', cellsOnEdge)
       call mpas_pool_get_array(mesh, 'edgesOnCell', edgesOnCell)
