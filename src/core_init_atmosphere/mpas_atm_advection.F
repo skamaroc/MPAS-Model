@@ -803,6 +803,11 @@ module atm_advection
 
       defc_a(:,:) = 0.
       defc_b(:,:) = 0.
+      deformation_coef_c2(:,:) = 0.
+      deformation_coef_s2(:,:) = 0.
+      deformation_coef_cs(:,:) = 0.
+      deformation_coef_c(:,:) = 0.
+      deformation_coef_s(:,:) = 0.
 
       pii = 2.*asin(1.0)
 
