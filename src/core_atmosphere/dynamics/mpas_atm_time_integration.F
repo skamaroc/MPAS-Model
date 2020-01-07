@@ -4258,7 +4258,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(:), pointer ::  fEdge, dvEdge, dcEdge, invDcEdge, invDvEdge, invAreaCell, invAreaTriangle, &
                                                    meshScalingDel2, meshScalingDel4
       real (kind=RKIND), dimension(:,:), pointer :: weightsOnEdge, zgrid, rho_edge, rho_zz, ru, u, v, tend_u, &
-                                                    divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
+                                                    divergence, vorticity, ke, pv_edge, theta_m, theta, rw, tend_rho, &
                                                     rt_diabatic_tend, tend_theta, tend_w, w, cqw, rb, rr, pp, pressure_b, zz, zxu, cqu, & 
                                                     h_divergence, kdiff, edgesOnCell_sign, edgesOnVertex_sign, rw_save, ru_save
 
@@ -4315,6 +4315,7 @@ module atm_time_integration
       logical, pointer :: config_rayleigh_damp_u
       real (kind=RKIND), pointer :: config_rayleigh_damp_u_timescale_days
       integer, pointer :: config_number_rayleigh_damp_u_levels
+      integer, pointer :: index_qv
 
       logical :: inactive_rthdynten
 
@@ -4344,6 +4345,7 @@ module atm_time_integration
       call mpas_pool_get_array(state, 'w', w, 2)
       call mpas_pool_get_array(state, 'theta_m', theta_m, 2)
       call mpas_pool_get_array(state, 'theta_m', theta_m_save, 1)
+      call mpas_pool_get_array(state, 'theta', theta, 2)
       call mpas_pool_get_array(state, 'scalars', scalars, 2)
 
       call mpas_pool_get_array(diag, 'uReconstructZonal', ur_cell)
@@ -4439,6 +4441,7 @@ module atm_time_integration
       call mpas_pool_get_dimension(state, 'num_scalars', num_scalars)
       call mpas_pool_get_dimension(state, 'moist_start', moist_start)
       call mpas_pool_get_dimension(state, 'moist_end', moist_end)
+      call mpas_pool_get_dimension(state, 'index_qv', index_qv)
 
       call mpas_pool_get_array(mesh, 'nEdgesOnCell', nEdgesOnCell)
       call mpas_pool_get_array(mesh, 'nAdvCellsForEdge', nAdvCellsForEdge)
@@ -4463,10 +4466,10 @@ module atm_time_integration
       end if
 
       call atm_compute_dyn_tend_work(nCells, nEdges, nVertices, nVertLevels, &
-         nCellsSolve, nEdgesSolve, vertexDegree, maxEdges, maxEdges2, num_scalars, moist_start, moist_end, &
+         nCellsSolve, nEdgesSolve, vertexDegree, maxEdges, maxEdges2, num_scalars, index_qv, moist_start, moist_end, &
          fEdge, dvEdge, dcEdge, invDcEdge, invDvEdge, invAreaCell, invAreaTriangle, meshScalingDel2, meshScalingDel4, &
          weightsOnEdge, zgrid, rho_edge, rho_zz, ru, u, v, tend_u, &
-         divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
+         divergence, vorticity, ke, pv_edge, theta_m, theta, rw, tend_rho, &
          rt_diabatic_tend, tend_theta, tend_w, w, cqw, rb, rr, pp, pressure_b, zz, zxu, cqu, & 
          h_divergence, kdiff, edgesOnCell_sign, edgesOnVertex_sign, rw_save, ru_save, &
          theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, deriv_two, &
@@ -4492,10 +4495,10 @@ module atm_time_integration
 
 
    subroutine atm_compute_dyn_tend_work(nCells, nEdges, nVertices, nVertLevels_dummy, &
-      nCellsSolve, nEdgesSolve, vertexDegree, maxEdges_dummy, maxEdges2_dummy, num_scalars_dummy, moist_start, moist_end, &
+      nCellsSolve, nEdgesSolve, vertexDegree, maxEdges_dummy, maxEdges2_dummy, num_scalars_dummy, index_qv, moist_start, moist_end, &
       fEdge, dvEdge, dcEdge, invDcEdge, invDvEdge, invAreaCell, invAreaTriangle, meshScalingDel2, meshScalingDel4, &
       weightsOnEdge, zgrid, rho_edge, rho_zz, ru, u, v, tend_u, &
-      divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
+      divergence, vorticity, ke, pv_edge, theta_m, theta, rw, tend_rho, &
       rt_diabatic_tend, tend_theta, tend_w, w, cqw, rb, rr, pp, pressure_b, zz, zxu, cqu, & 
       h_divergence, kdiff, edgesOnCell_sign, edgesOnVertex_sign, rw_save, ru_save, &
       theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, deriv_two, &
@@ -4524,7 +4527,7 @@ module atm_time_integration
       ! Dummy arguments
       !
       integer :: nCells, nEdges, nVertices, nVertLevels_dummy, nCellsSolve, nEdgesSolve, vertexDegree, &
-                 maxEdges_dummy, maxEdges2_dummy, num_scalars_dummy, moist_start, moist_end
+                 maxEdges_dummy, maxEdges2_dummy, num_scalars_dummy, index_qv, moist_start, moist_end
 
       real (kind=RKIND), dimension(nEdges+1) :: fEdge
       real (kind=RKIND), dimension(nEdges+1) :: dvEdge
@@ -4548,6 +4551,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: ke
       real (kind=RKIND), dimension(nVertLevels,nEdges+1) :: pv_edge
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: theta_m
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: theta
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: rw
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: tend_rho
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: rt_diabatic_tend
@@ -4564,6 +4568,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels,nEdges+1) :: cqu
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: h_divergence
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: kdiff
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: bn2
       real (kind=RKIND), dimension(maxEdges,nCells+1) :: edgesOnCell_sign
       real (kind=RKIND), dimension(vertexDegree,nVertices+1) :: edgesOnVertex_sign
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: rw_save
@@ -4717,6 +4722,7 @@ module atm_time_integration
          else if (config_les_model == "3d_smagorinsky") then
 
             ! call to 3D smagorinsky here...
+                  call calculate_n2(bn2, theta, scalars, num_scalars, index_qv, cellStart, cellEnd, nCells)
 
          end if
 
