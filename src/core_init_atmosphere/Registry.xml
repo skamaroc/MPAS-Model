@@ -934,6 +934,9 @@
 
                         <var name="qr" array_group="moist" units="kg kg^{-1}"
                              description="Rain water mixing ratio"/>
+
+                        <var name="tke" array_group="turbulence" units="m^2 s^{-2}"
+                             description="Turbulent kinetic energy for the prognostic tke LES scheme"/>
                 </var_array>
 
                 <!-- Climatology for ocean mixed-layer depth -->
