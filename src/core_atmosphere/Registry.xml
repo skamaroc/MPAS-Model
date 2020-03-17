@@ -1491,6 +1491,10 @@
                         <var name="nr" array_group="number" units="nb kg^{-1}"
                              description="Rain number concentration"
                              packages="mp_thompson_in"/>
+
+                        <var name="tke" array_group="turbulence" units="m^2 s^{-2}"
+                             description="Turbulent kinetic energy for the prognostic tke LES scheme"/>
+
                 </var_array>
 
                 <var_array name="aerosols" type="real" dimensions="nAerLevels nCells Time">
@@ -1814,6 +1818,9 @@
                         <var name="tend_nr" name_in_code="nr" array_group="number" units="nb m^{-3} s^{-1}" 
                              description="Tendency of rain number concentration multiplied by dry air density divided by d(zeta)/dz"
                              packages="mp_thompson_in"/>
+
+                        <var name="tend_tke" name_in_code="tke" array_group="turbulence" units="kg m^{-3} m^2 s^{-2} s^{-1}" 
+                             description="Tendency of tke  multiplied by dry air density divided by d(zeta)/dz"/>
                 </var_array>
         </var_struct>
 
