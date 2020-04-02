@@ -33,7 +33,7 @@ module mpas_constants
    real (kind=RKIND), parameter :: cp      = 7.*rgas/2.          !< Constant: Specific heat of dry air at constant pressure [J kg-1 K-1]
    real (kind=RKIND), parameter :: cv      = cp - rgas           !< Constant: Specific heat of dry air at constant volume [J kg-1 K-1]
    real (kind=RKIND), parameter :: cvpm    = -cv/cp              !
-   real (kind=RKIND), parameter :: prandtl = 1.0                 !< Constant: Prandtl number
+   real (kind=RKIND), parameter :: prandtl = 1./3.                 !< Constant: Prandtl number
 
    contains
 
