@@ -202,6 +202,7 @@ module atm_time_integration
 
       logical, parameter :: debug = .false.
 
+      logical, pointer :: config_energy_diagnostics
 
       !
       ! Retrieve configuration options
@@ -213,6 +214,7 @@ module atm_time_integration
       call mpas_pool_get_config(domain % blocklist % configs, 'config_monotonic', config_monotonic)
       call mpas_pool_get_config(domain % blocklist % configs, 'config_dt', config_dt)
       call mpas_pool_get_config(domain % blocklist % configs, 'config_IAU_option', config_IAU_option)
+      call mpas_pool_get_config(domain % blocklist % configs, 'config_energy_diagnostics', config_energy_diagnostics)
 
       !  config variables for dynamics-transport splitting, WCS 18 November 2014
       call mpas_pool_get_config(domain % blocklist % configs, 'config_split_dynamics_transport', config_split_dynamics_transport)
@@ -351,6 +353,111 @@ module atm_time_integration
          block => block % next
       end do
       call mpas_timer_stop('atm_rk_integration_setup')
+
+      !----------- energy diagnostics at start of timestep
+
+      if (config_energy_diagnostics) then
+
+         call mpas_timer_start('atm_rk_energy_diagnostics')
+
+         block => domain % blocklist
+         do while (associated(block))
+            call mpas_pool_get_subpool(block % structs, 'state', state)
+            call mpas_pool_get_subpool(block % structs, 'diag', diag)
+            call mpas_pool_get_subpool(block % structs, 'mesh', mesh)
+
+            call mpas_pool_get_dimension(block % dimensions, 'nThreads', nThreads)
+
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadStart', cellThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadEnd', cellThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadStart', cellSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadEnd', cellSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadStart', vertexThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadEnd', vertexThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadStart', vertexSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadEnd', vertexSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadStart', edgeThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadEnd', edgeThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadStart', edgeSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadEnd', edgeSolveThreadEnd)
+
+!$OMP PARALLEL DO
+            do thread=1,nThreads
+               call atm_energetics( state, diag, mesh, 'beginning_of_timestep',                    &
+                                    cellThreadStart(thread), cellThreadEnd(thread),                &
+                                    vertexThreadStart(thread), vertexThreadEnd(thread),            &
+                                    edgeThreadStart(thread), edgeThreadEnd(thread),                &
+                                    cellSolveThreadStart(thread), cellSolveThreadEnd(thread),      &
+                                    vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread),  &
+                                    edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread)      )
+            end do
+!$OMP END PARALLEL DO
+
+            block => block % next
+         end do
+
+         call mpas_timer_stop('atm_rk_energy_diagnostics')
+
+      end if ! config_energy_diagnostics
+
+!--------------------
+!
+! we will place an optional scalar physics tendency update here for CAM applications.  
+! we will need communications into the scalar halos here after update
+
+!---------------------
+
+      !----------- energy diagnostics after physics update
+
+      if (config_energy_diagnostics) then
+
+         call mpas_timer_start('atm_rk_energy_diagnostics')
+
+         block => domain % blocklist
+         do while (associated(block))
+            call mpas_pool_get_subpool(block % structs, 'state', state)
+            call mpas_pool_get_subpool(block % structs, 'diag', diag)
+            call mpas_pool_get_subpool(block % structs, 'mesh', mesh)
+
+            call mpas_pool_get_dimension(block % dimensions, 'nThreads', nThreads)
+
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadStart', cellThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadEnd', cellThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadStart', cellSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadEnd', cellSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadStart', vertexThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadEnd', vertexThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadStart', vertexSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadEnd', vertexSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadStart', edgeThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadEnd', edgeThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadStart', edgeSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadEnd', edgeSolveThreadEnd)
+
+!$OMP PARALLEL DO
+            do thread=1,nThreads
+               call atm_energetics( state, diag, mesh, 'after_physics_update',                     &
+                                    cellThreadStart(thread), cellThreadEnd(thread),                &
+                                    vertexThreadStart(thread), vertexThreadEnd(thread),            &
+                                    edgeThreadStart(thread), edgeThreadEnd(thread),                &
+                                    cellSolveThreadStart(thread), cellSolveThreadEnd(thread),      &
+                                    vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread),  &
+                                    edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread)      )
+            end do
+!$OMP END PARALLEL DO
+
+            block => block % next
+         end do
+
+         call mpas_timer_stop('atm_rk_energy_diagnostics')
+
+      end if ! config_energy_diagnostics
+
+!---------------------
 
       call mpas_timer_start('atm_compute_moist_coefficients')
       block => domain % blocklist
@@ -1295,6 +1402,57 @@ module atm_time_integration
          end if
          block => block % next
       end do
+
+      !----------- energy diagnostics at end of timestep
+
+      if (config_energy_diagnostics) then
+
+         call mpas_timer_start('atm_rk_energy_diagnostics')
+
+         block => domain % blocklist
+         do while (associated(block))
+            call mpas_pool_get_subpool(block % structs, 'state', state)
+            call mpas_pool_get_subpool(block % structs, 'diag', diag)
+            call mpas_pool_get_subpool(block % structs, 'mesh', mesh)
+
+            call mpas_pool_get_dimension(block % dimensions, 'nThreads', nThreads)
+
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadStart', cellThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellThreadEnd', cellThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadStart', cellSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'cellSolveThreadEnd', cellSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadStart', vertexThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexThreadEnd', vertexThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadStart', vertexSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'vertexSolveThreadEnd', vertexSolveThreadEnd)
+
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadStart', edgeThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeThreadEnd', edgeThreadEnd)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadStart', edgeSolveThreadStart)
+            call mpas_pool_get_dimension(block % dimensions, 'edgeSolveThreadEnd', edgeSolveThreadEnd)
+
+!$OMP PARALLEL DO
+            do thread=1,nThreads
+               call atm_energetics( state, diag, mesh, 'end_of_timestep',                          &
+                                    cellThreadStart(thread), cellThreadEnd(thread),                &
+                                    vertexThreadStart(thread), vertexThreadEnd(thread),            &
+                                    edgeThreadStart(thread), edgeThreadEnd(thread),                &
+                                    cellSolveThreadStart(thread), cellSolveThreadEnd(thread),      &
+                                    vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread),  &
+                                    edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread)      )
+            end do
+!$OMP END PARALLEL DO
+
+            block => block % next
+         end do
+
+         call mpas_timer_stop('atm_rk_energy_diagnostics')
+
+      end if ! config_energy_diagnostics
+
+      !----------- end energy diagnostics at end of timestep
+
 
       !
       ! Note: A halo exchange for 'exner' here as well as at the end of
@@ -6065,5 +6223,104 @@ module atm_time_integration
       end if
 
    end subroutine summarize_timestep
+
+!-------------
+
+   subroutine atm_energetics( state, diag, mesh, integration_position, &
+                              cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd, &
+                              cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd)
+
+      ! compute column integrals of cloud ,liquid, ice and kinetic, potential and internal energy
+
+      implicit none
+
+      type (mpas_pool_type), intent(inout) :: state
+      type (mpas_pool_type), intent(inout) :: diag
+      type (mpas_pool_type), intent(inout) :: mesh
+      integer, intent(in) :: cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd
+      integer, intent(in) :: cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd
+      character(len=*), intent(in) :: integration_position
+
+      integer :: iCell, k
+      real (kind=RKIND), dimension(:,:,:), pointer :: scalars
+      real (kind=RKIND), dimension(:,:), pointer :: ke, rho_zz, exner, theta_m, zgrid
+      real (kind=RKIND), dimension(:), pointer :: rdzw
+      integer, pointer :: index_qv, moist_start, moist_end, nVertLevels
+
+      ! water diagnostics
+
+      real (kind=RKIND), dimension(:), pointer :: water_vapor, water_liquid, water_ice
+      real (kind=RKIND), dimension(:), pointer :: kinetic_energy, potential_energy, internal_energy
+
+      ! local variables
+
+      real (kind=RKIND) :: temperature, zcell, rho_dz
+
+      call mpas_pool_get_dimension(state, 'nVertLevels', nVertLevels)
+      call mpas_pool_get_dimension(state, 'moist_start', moist_start)
+      call mpas_pool_get_dimension(state, 'moist_end', moist_end)
+      call mpas_pool_get_dimension(state, 'index_qv', index_qv)
+
+      call mpas_pool_get_array(state, 'scalars', scalars, 2)
+      call mpas_pool_get_array(state, 'rho_zz', rho_zz, 2)
+      call mpas_pool_get_array(state, 'theta_m', theta_m, 2)
+      call mpas_pool_get_array(diag, 'ke', ke )
+      call mpas_pool_get_array(diag, 'exner', exner )
+      call mpas_pool_get_array(mesh, 'zgrid', zgrid )
+      call mpas_pool_get_array(mesh, 'rdzw', rdzw )
+
+      if (integration_position == "beginning_of_timestep") then
+         call mpas_pool_get_array(diag, 'WV_dED', water_vapor )
+         call mpas_pool_get_array(diag, 'WL_dED', water_liquid )
+         call mpas_pool_get_array(diag, 'WI_dED', water_ice )
+         call mpas_pool_get_array(diag, 'KE_dED', kinetic_energy )
+         call mpas_pool_get_array(diag, 'PE_dED', potential_energy )
+         call mpas_pool_get_array(diag, 'IE_dED', internal_energy )
+      else if (integration_position == "after_physics_update") then
+         call mpas_pool_get_array(diag, 'WV_dBD', water_vapor )
+         call mpas_pool_get_array(diag, 'WL_dBD', water_liquid )
+         call mpas_pool_get_array(diag, 'WI_dBD', water_ice )
+         call mpas_pool_get_array(diag, 'KE_dBD', kinetic_energy )
+         call mpas_pool_get_array(diag, 'PE_dBD', potential_energy )
+         call mpas_pool_get_array(diag, 'IE_dBD', internal_energy )
+      else if (integration_position == "end_of_timestep") then
+         call mpas_pool_get_array(diag, 'WV_dBF', water_vapor )
+         call mpas_pool_get_array(diag, 'WL_dBF', water_liquid )
+         call mpas_pool_get_array(diag, 'WI_dBF', water_ice )
+         call mpas_pool_get_array(diag, 'KE_dBF', kinetic_energy )
+         call mpas_pool_get_array(diag, 'PE_dBF', potential_energy )
+         call mpas_pool_get_array(diag, 'IE_dBF', internal_energy )
+      else
+         ! need an error condition here 
+      end if
+
+      water_vapor(cellStart:cellEnd)      = 0.0
+      water_liquid(cellStart:cellEnd)     = 0.0
+      water_ice(cellStart:cellEnd)        = 0.0
+      kinetic_energy(cellStart:cellEnd)   = 0.0
+      potential_energy(cellStart:cellEnd) = 0.0
+      internal_energy(cellStart:cellEnd)  = 0.0
+
+      do iCell = cellStart,cellEnd
+         do k = 1,nVertLevels
+
+            temperature = exner(k,iCell)*theta_m(k,iCell)/(1.0+(rv/rgas)*scalars(index_qv,k,iCell))
+            zcell = 0.5*(zgrid(k,iCell)+zgrid(k+1,iCell))
+            rho_dz = rho_zz(k,iCell)/rdzw(k)
+
+            ! compute integrals
+
+            ! (1) need way to figure out liquid and ice, or else hardwire here
+            ! (2) what density do we use for energy integrals (include moisture mass)?
+
+            water_vapor(iCell) = water_vapor(iCell)+rho_dz*scalars(index_qv,k,iCell)
+            kinetic_energy(iCell)   = kinetic_energy(iCell)   + rho_dz*ke(k,iCell)
+            potential_energy(iCell) = potential_energy(iCell) + rho_dz*zcell*gravity
+            internal_energy(iCell)  = internal_energy(iCell)  + cv*temperature*rho_dz
+
+         end do
+      end do
+
+   end subroutine atm_energetics
 
 end module atm_time_integration
