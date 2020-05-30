@@ -575,8 +575,10 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
-         fzp (k)  = .5* dzw(k  )/dzu(k)
-         fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp (k)  = .5* dzw(k  )/dzu(k)
+         ! fzm (k)  = .5* dzw(k-1)/dzu(k)
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
@@ -585,8 +587,10 @@ module init_atm_cases
 
       COF1 = (2.*DZU(2)+DZU(3))/(DZU(2)+DZU(3))*DZW(1)/DZU(2) 
       COF2 =     DZU(2)        /(DZU(2)+DZU(3))*DZW(1)/DZU(3) 
-      CF1  = FZP(2) + COF1
-      CF2  = FZM(2) - COF1 - COF2
+      ! CF1  = FZP(2) + COF1
+      ! CF2  = FZM(2) - COF1 - COF2
+      CF1  = FZM(2) + COF1
+      CF2  = FZP(2) - COF1 - COF2
       CF3  = COF2       
 
 !      d1  = .5*dzw(1)
