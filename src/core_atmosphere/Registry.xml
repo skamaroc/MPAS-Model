@@ -242,6 +242,11 @@
                      description="Scale eddy viscosities with mesh-density function for horizontal diffusion"
                      possible_values=".true. or .false."/>
 
+                <nml_option name="config_energy_diagnostics" type="logical" default_value="false" in_defaults="false" used_by="cam"
+                     units="-"
+                     description="compute energetics diagnostics in the MPAS dynamical core"
+                     possible_values=".true. or .false."/>
+
                 <nml_option name="config_num_halos" type="integer" default_value="2" in_defaults="false" used_by="cam"
                      units="-"
                      description="Number of halo layers for fields"
@@ -1615,6 +1620,61 @@
 
                 <var name="surface_pressure" type="real" dimensions="nCells Time" units="Pa"
                      description="Diagnosed surface pressure"/>
+
+                <!-- variables for energy diagnostics computed in the dynamical core, used in CAM -->
+                <var name="WV_dED" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="water vapor column mass per unit area at the start of dynamical core integration"/>
+
+                <var name="WL_dED" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud liquid column mass per unit area at the start of dynamical core integration"/>
+
+                <var name="WI_dED" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud ice column mass per unit area at the start of dynamical core integration"/>
+
+                <var name="KE_dED" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated kinetic energy per unit area at the start of dynamical core integration"/>
+
+                <var name="PE_dED" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated potential energy per unit area at the start of dynamical core integration"/>
+
+                <var name="IE_dED" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated internal energy per unit area at the start of dynamical core integration"/>
+
+                <var name="WV_dBD" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="water vapor column mass per unit area after physics tendency is added "/>
+
+                <var name="WL_dBD" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud liquid column mass per unit area after physics tendency is added "/>
+
+                <var name="WI_dBD" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud ice column mass per unit area after physics tendency is added "/>
+
+                <var name="KE_dBD" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated kinetic energy per unit area after physics tendency is added "/>
+
+                <var name="PE_dBD" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated potential energy per unit area after physics tendency is added "/>
+
+                <var name="IE_dBD" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated internal energy per unit area after physics tendency is added "/>
+
+                <var name="WV_dBF" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="water vapor column mass per unit area after full dynamics update"/>
+
+                <var name="WL_dBF" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud liquid column mass per unit area after full dynamics update"/>
+
+                <var name="WI_dBF" type="real" dimensions="nCells Time" units="kg m^{-2}"
+                     description="cloud ice column mass per unit area after full dynamics update"/>
+
+                <var name="KE_dBF" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated kinetic energy per unit area after full dynamics update"/>
+
+                <var name="PE_dBF" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated potential energy per unit area after full dynamics update"/>
+
+                <var name="IE_dBF" type="real" dimensions="nCells Time" units="Joules m^{-2}"
+                     description="column-integrated internal energy per unit area after full dynamics update"/>
 
         </var_struct>
 
