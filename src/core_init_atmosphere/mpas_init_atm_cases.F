@@ -1422,7 +1422,7 @@ module init_atm_cases
       integer, parameter :: zcoords_dcmip=1, config_moist_dcmip=0
 
       integer :: pertt_umj
-      real (kind=RKIND), parameter :: X_dcmip = 20.
+      real (kind=RKIND), parameter :: X_dcmip = 1.
       integer, parameter :: deep_dcmip = 0
 
       real (kind=RKIND) lon_dcmip,lat_dcmip,                           &
@@ -1445,7 +1445,6 @@ module init_atm_cases
 
       real (kind=RKIND) z0, z1, z2, dz1, dz2, weight1, weight2, r_c, r_c_top
 
-      real (kind=RKIND), dimension(nVertLevels+1) :: hydrostatic_nct
       integer :: km1, kw
 
       logical, parameter :: discrete_hydrostatic_base = .true.
@@ -1747,8 +1746,8 @@ module init_atm_cases
 !
           lat_dcmip = 0.
           lon_dcmip = 0.
-          call mpas_log_write(' sounding fro dcmip at the equator ')
-          do k=1,nz1  ! we are computing the hydrostatic nct terms at U levels here
+          call mpas_log_write(' sounding from dcmip at the equator ')
+          do k=1,nz1  
             z_dcmip = 0.5*(zgrid(k,1)+zgrid(k+1,1))
             call baroclinic_wave_test (deep_dcmip, config_moist_dcmip, pertt_umj, X_dcmip,  &
                                        lon_dcmip, lat_dcmip, p_dcmip, z_dcmip,       &
