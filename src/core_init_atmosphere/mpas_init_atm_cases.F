@@ -1419,7 +1419,8 @@ module init_atm_cases
       !  dcmip initialization declarations
 
       logical, parameter :: chem_terminator = .false., cam_vert_config = .false.
-      integer, parameter :: zcoords_dcmip=1, config_moist_dcmip=0
+      integer, parameter :: zcoords_dcmip=1, config_moist_dcmip=1
+      integer :: moist_dcmip 
 
       integer :: pertt_umj
       real (kind=RKIND), parameter :: X_dcmip = 1.
@@ -1448,6 +1449,7 @@ module init_atm_cases
       integer :: km1, kw
 
       logical, parameter :: discrete_hydrostatic_base = .true.
+      logical, parameter :: perturbation_state_init = .false.
       real (kind=RKIND) :: pitop, rhotop, thetatop
 
 !-----------------
@@ -1795,23 +1797,14 @@ module init_atm_cases
          ! downward hydrostatic integration to first half level from lid
 
          k = nz1
-         weight1 = 0.5
-         weight2 = 0.5
-
-         do itrp = 1,25
-           ppb(k,i) = ptop +.5*dzw(nz1)*(gravity)*(weight1*rb(k,i)+weight2*rhotop)
-           rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
-         end do
+         ppb(k,i) = ptop/(1.0-0.5*(zgrid(k+1,i)-zgrid(k,i))*gravity/(rgas*t0b))
+         rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
 
          do k=nz1-1, 1, -1
 
-           weight1 = fzp(k+1)
-           weight2 = fzm(k+1)
-
-           do itrp = 1,25
-             ppb(k,i) = ppb(k+1,i)+dzu(k+1)*(gravity)*(weight1*rb(k,i)+weight2*rb(k+1,i))
-             rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
-           end do
+           ppb(k,i) = ppb(k+1,i)*(1.0+0.5*(zgrid(k+2,i)-zgrid(k+1,i))*gravity/(rgas*t0b))/  &
+                                 (1.0-0.5*(zgrid(k+1,i)-zgrid(k  ,i))*gravity/(rgas*t0b))
+           rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
            
          end do
 
@@ -1875,42 +1868,63 @@ module init_atm_cases
         dz1 = z1-z0
         dz2 = z2-z1
 
-        weight2 = -0.5*dz1/dz2 ! linear interp weights to midpoint between lowest level and surface 
-        weight1 = 1.-weight2   ! used to calculate surface pressure
+        ! weight2 = -0.5*dz1/dz2 ! linear interp weights to midpoint between lowest level and surface 
+        ! weight1 = 1.-weight2   ! used to calculate surface pressure
+
+        weight2 = 0.
+        weight1 = 1.-weight2  ! energetically consistent weights - constant density in a cell
 
         ! weight2 = -0.25  ! original weights
         ! weight1 = 1.25 
 
         if(i == nCells ) call mpas_log_write(' last column, perturbation balance, last column bottom rb, $r ',realArgs=(/rb(1,nCells)/))
 
-        do itrp = 1,50
+        if(perturbation_state_init) then
 
-          do k=1,nz1
-            rr(k,i)  = (pp(k,i)/(rgas*zz(k,i)) - rb(k,i)*(tt(k)-t0b))/tt(k)
-          end do
+           do itrp = 1,50
 
-          !! ps_dcmip is bottom boundary condition
-          ppi(1) = ps_dcmip -.5*dzw(1)*(gravity)                                     &
-                        *( weight1*((rr(1,i)+rb(1,i)))*(1.+scalars(index_qv,1,i))    &
-                          +weight2*((rr(2,i)+rb(2,i)))*(1.+scalars(index_qv,2,i)) ) 
+              do k=1,nz1
+                rr(k,i)  = (pp(k,i)/(rgas*zz(k,i)) - rb(k,i)*(tt(k)-t0b))/tt(k)
+              end do
 
-          ppi(1) = ppi(1)-ppb(1,i)
-          do k=1,nz1-1
+              !! ps_dcmip is bottom boundary condition
+              ppi(1) = ps_dcmip -.5*dzw(1)*(gravity)                                     &
+                            *( weight1*((rr(1,i)+rb(1,i)))*(1.+scalars(index_qv,1,i))    &
+                              +weight2*((rr(2,i)+rb(2,i)))*(1.+scalars(index_qv,2,i)) ) 
 
-             ppi(k+1) = ppi(k)-dzu(k+1)*(gravity)                                                    &
-                           *( (rr(k  ,i) + (rr(k  ,i)+rb(k  ,i))*scalars(index_qv,k  ,i))*fzp(k+1)   &
-                             +(rr(k+1,i) + (rr(k+1,i)+rb(k+1,i))*scalars(index_qv,k+1,i))*fzm(k+1) ) 
-          end do
+              ppi(1) = ppi(1)-ppb(1,i)
+              do k=1,nz1-1
 
-          do k=1,nz1
-            pp(k,i) = .2*ppi(k)+.8*pp(k,i)
-          end do
+                 ppi(k+1) = ppi(k)-dzu(k+1)*(gravity)                                                    &
+                               *( (rr(k  ,i) + (rr(k  ,i)+rb(k  ,i))*scalars(index_qv,k  ,i))*fzp(k+1)   &
+                                 +(rr(k+1,i) + (rr(k+1,i)+rb(k+1,i))*scalars(index_qv,k+1,i))*fzm(k+1) ) 
+              end do
 
-        end do  ! end iteration loop itrp
+              do k=1,nz1
+                pp(k,i) = .2*ppi(k)+.8*pp(k,i)
+              end do
+
+           end do  ! end iteration loop itrp
+
+        else !  do hydrostatic integration of full variables.  temperature is fixed so no iterations.
+
+           pp(1,i) = ps_dcmip/(1.0+0.5*(zgrid(2,i)-zgrid(1,i))*(1.+scalars(index_qv,1  ,i))*gravity/(rgas*tt(1)))
+
+           do k=2,nz1
+              pp(k,i) = pp(k-1,i)*(1.0-0.5*(zgrid(k  ,i)-zgrid(k-1,i))*gravity*(1.+scalars(index_qv,k-1,i))/(rgas*tt(k-1)))/ &
+                                  (1.0+0.5*(zgrid(k+1,i)-zgrid(k  ,i))*gravity*(1.+scalars(index_qv,k  ,i))/(rgas*tt(k  )))
+           end do
+
+           ! compute mpas coupled dry perturbation density, switch pressure to pert pressure
+           do k=1,nz1
+              rr(k,i) = pp(k,i)/(rgas*tt(k)*zz(k,i)) - rb(k,i)
+              pp(k,i) = pp(k,i)-ppb(k,i)
+           end do
+
+        end if
 
         do k=1,nz1
           ! p is the exner function     
-          !! p (k,i) = (max(1.0,(ppb(k,i)+pp(k,i)))/p0)**(rgas/cp)
           p (k,i) = ((ppb(k,i)+pp(k,i))/p0)**(rgas/cp)
           t (k,i) = tt(k)/p(k,i) ! theta_m, factor of (1.+ (rv_rgas)*qv) already in tt
           rt (k,i) = t(k,i)*rr(k,i)+rb(k,i)*(t(k,i)-tb(k,i))
