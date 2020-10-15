@@ -2685,6 +2685,9 @@ module init_atm_cases
 
       character (len=StrKIND) :: errstring
 
+      logical, parameter :: discrete_hydrostatic_base = .true.
+      real (kind=RKIND) :: pitop, rhotop, thetatop
+
       call mpas_pool_get_config(configs, 'config_met_prefix', config_met_prefix)
       call mpas_pool_get_config(configs, 'config_start_time', config_start_time)
       call mpas_pool_get_config(configs, 'config_met_interp', config_met_interp)
@@ -3079,8 +3082,14 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
-         fzp (k)  = .5* dzw(k  )/dzu(k)
-         fzm (k)  = .5* dzw(k-1)/dzu(k)
+
+         ! fzp and fzm for interp to w
+         ! fzp (k)  = .5* dzw(k  )/dzu(k)
+         ! fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp and fzm for vertical integral over w volume (the new preferred approach)
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
+
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
@@ -4734,34 +4743,69 @@ call mpas_log_write('Done with soil consistency check')
       !
       ! Reference state based on a dry isothermal atmosphere
       !
-      do iCell=1,nCells
-         do k=1,nz1
-            ztemp    = 0.5*(zgrid(k+1,iCell)+zgrid(k,iCell))
-            ppb(k,iCell) = p0*exp(-gravity*ztemp/(rgas*t0b))      ! pressure_base
-            pb (k,iCell) = (ppb(k,iCell)/p0)**(rgas/cp)           ! exner_base
-!            rb (k,iCell) = ppb(k,iCell)/(rgas*t0b*zz(k,iCell))    ! rho_base
-            rb (k,iCell) = ppb(k,iCell)/(rgas*t0b)                ! rho_base
-            tb (k,iCell) = t0b/pb(k,iCell)                        ! theta_base
-            rtb(k,iCell) = rb(k,iCell)*tb(k,iCell)                ! rtheta_base
-            p  (k,iCell) = pb(k,iCell)                            ! exner
-            pp (k,iCell) = 0.                                     ! pressure_p
-            rr (k,iCell) = 0.                                     ! rho_p
-         end do
-      end do
 
-      do iCell=1,nCells
-         do k=1,nVertLevels
+      if(discrete_hydrostatic_base) then 
+
+         do iCell=1,nCells
+
+            ztemp = zgrid(nz,iCell)
+            ptop = p0*exp(-gravity*ztemp/(rgas*t0b)) ! lid pressure
+            pitop = (ptop/p0)**(rgas/cp)             ! lid exner function
+            rhotop = ptop/(rgas*t0b*zz(nz1,iCell))         ! lid coupled density
+            thetatop = t0b/pitop                     ! lid potential temperature
+
+            ! downward hydrostatic integration to first half level from lid
+
+            k = nz1
+            ppb(k,iCell) = ptop/(1.0-0.5*(zgrid(k+1,iCell)-zgrid(k,iCell))*gravity/(rgas*t0b))
+            rb (k,iCell) = ppb(k,iCell)/(rgas*t0b*zz(k,iCell))
+
+            do k=nz1-1, 1, -1
+
+               ppb(k,iCell) = ppb(k+1,iCell)*(1.0+0.5*(zgrid(k+2,iCell)-zgrid(k+1,iCell))*gravity/(rgas*t0b))/  &
+                                             (1.0-0.5*(zgrid(k+1,iCell)-zgrid(k  ,iCell))*gravity/(rgas*t0b))
+               rb (k,iCell) = ppb(k,iCell)/(rgas*t0b*zz(k,iCell))
+           
+            end do
+
+            do k=1,nz1
+               pb (k,iCell) = (ppb(k,iCell)/p0)**(rgas/cp)
+               tb (k,iCell) = t0b/pb(k,iCell)
+               rtb(k,iCell) = rb(k,iCell)*tb(k,iCell)
+               p  (k,iCell) = pb(k,iCell)
+               pp(k,iCell)  = 0.0
+               rr(k,iCell)  = 0.0
+            end do
+
+         end do
+
+      else ! analytic hydrostatic base 
+
+         do iCell=1,nCells
+            do k=1,nz1
+               ztemp    = 0.5*(zgrid(k+1,iCell)+zgrid(k,iCell))
+               ppb(k,iCell) = p0*exp(-gravity*ztemp/(rgas*t0b))      ! pressure_base
+               pb (k,iCell) = (ppb(k,iCell)/p0)**(rgas/cp)           ! exner_base
+!               rb (k,iCell) = ppb(k,iCell)/(rgas*t0b*zz(k,iCell))    ! rho_base
+               rb (k,iCell) = ppb(k,iCell)/(rgas*t0b)                ! rho_base
+               tb (k,iCell) = t0b/pb(k,iCell)                        ! theta_base
+               rtb(k,iCell) = rb(k,iCell)*tb(k,iCell)                ! rtheta_base
+               p  (k,iCell) = pb(k,iCell)                            ! exner
+               pp (k,iCell) = 0.                                     ! pressure_p
+               rr (k,iCell) = 0.                                     ! rho_p
 
 !  WCS 20130821 - couple with vertical metric
 
-            rb(k,iCell) = rb(k,iCell) / zz(k,iCell)
-            rho_zz(k,iCell) = rho_zz(k,iCell) / zz(k,iCell)
+               rb(k,iCell) = rb(k,iCell) / zz(k,iCell)
+               rho_zz(k,iCell) = rho_zz(k,iCell) / zz(k,iCell)
 
-            pp(k,iCell) = pressure(k,iCell) - ppb(k,iCell) 
-            rr(k,iCell) = rho_zz(k,iCell) - rb(k,iCell)
+               pp(k,iCell) = pressure(k,iCell) - ppb(k,iCell) 
+               rr(k,iCell) = rho_zz(k,iCell) - rb(k,iCell)
 
+            end do
          end do
-      end do
+
+      end if ! analytic or discrete hydrostatic base
 
       do iCell=1,nCells
          k = 1
@@ -5219,10 +5263,11 @@ call mpas_log_write('Done with soil consistency check')
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
+
          ! fzp and fzm for interp to w
          fzp (k)  = .5* dzw(k  )/dzu(k)
          fzm (k)  = .5* dzw(k-1)/dzu(k)
-         ! fzp and fzm for vertical integral over w volume
+         ! fzp and fzm for vertical integral over w volume (the new preferred approach)
          fzm (k)  = .5* dzw(k  )/dzu(k)
          fzp (k)  = .5* dzw(k-1)/dzu(k)
 
