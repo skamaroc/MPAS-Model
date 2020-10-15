@@ -269,9 +269,9 @@ module init_atm_cases
       else if ((config_init_case == 10) .or. (config_init_case == 11) .or. (config_init_case == 12)) then
 
          call mpas_log_write(' dcmip test case setup - Ullich, Melvin, Jablonowski and Staniforth idealized baroclinic wave test case')
-         if (config_init_case == 11) call mpas_log_write(' no initial perturbation ')
-         if (config_init_case == 12) call mpas_log_write(' exponential type initial perturbation included ')
-         if (config_init_case == 13) call mpas_log_write(' stream-function type initial perturbation included ')
+         if (config_init_case == 10) call mpas_log_write(' no initial perturbation ')
+         if (config_init_case == 11) call mpas_log_write(' exponential type initial perturbation included ')
+         if (config_init_case == 12) call mpas_log_write(' stream-function type initial perturbation included ')
          block_ptr => domain % blocklist
          do while (associated(block_ptr))
 
@@ -293,7 +293,7 @@ module init_atm_cases
       else
 
          call mpas_log_write(' **************************************************** ', messageType=MPAS_LOG_ERR)
-         call mpas_log_write(' Only test cases 1 through 13 are currently supported.', messageType=MPAS_LOG_ERR)
+         call mpas_log_write(' Only test cases 1 through 12 are currently supported.', messageType=MPAS_LOG_ERR)
          call mpas_log_write(' **************************************************** ', messageType=MPAS_LOG_CRIT)
 
       end if
