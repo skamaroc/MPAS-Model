@@ -29,8 +29,10 @@ module init_atm_cases
    ! Added only clause to keep xlf90 from getting confused from the overloaded abs intrinsic in mpas_timekeeping
    use mpas_timekeeping !, only: MPAS_Time_type, MPAS_TimeInterval_type, MPAS_Clock_type, &
                         !        mpas_set_time, mpas_set_timeInterval, mpas_get_time, operator(+), add_t_ti
-   
 
+   logical, parameter :: discrete_hydrostatic_base = .true.
+   logical, parameter :: perturbation_state_init = .false.
+   logical, parameter :: no_reference_state = .true.
 
    contains
 
@@ -1419,7 +1421,7 @@ module init_atm_cases
       !  dcmip initialization declarations
 
       logical, parameter :: chem_terminator = .false., cam_vert_config = .false.
-      integer, parameter :: zcoords_dcmip=1, config_moist_dcmip=1
+      integer, parameter :: zcoords_dcmip=1, config_moist_dcmip=0
       integer :: moist_dcmip 
 
       integer :: pertt_umj
@@ -1448,8 +1450,6 @@ module init_atm_cases
 
       integer :: km1, kw
 
-      logical, parameter :: discrete_hydrostatic_base = .true.
-      logical, parameter :: perturbation_state_init = .false.
       real (kind=RKIND) :: pitop, rhotop, thetatop
 
 !-----------------
@@ -1767,6 +1767,62 @@ module init_atm_cases
 !
       do i=1, nCells
 
+        if(no_reference_state) then
+
+          if (i == 1) call mpas_log_write(' full variables - zero reference state ')
+
+          do k=1,nz1
+            ppb(k,i) = 0.
+            pb (k,i) = 0.
+            rb (k,i) = 0.
+            tb (k,i) = 0.
+            rtb(k,i) = 0.
+            p  (k,i) = 0.
+            pp (k,i) = 0.
+            rr (k,i) = 0.
+          end do
+
+        else if(discrete_hydrostatic_base) then ! analytic is first guess (for p, density)
+
+          if (i == 1) call mpas_log_write(' discrete hydrostatically balanced reference state ')
+
+          ztemp = zgrid(nz,i)
+          ptop = p0*exp(-gravity*ztemp/(rgas*t0b)) ! lid pressure
+          pitop = (ptop/p0)**(rgas/cp)             ! lid exner function
+          rhotop = ptop/(rgas*t0b*zz(nz1,i))         ! lid coupled density
+          thetatop = t0b/pitop                     ! lid potential temperature
+
+          ! downward hydrostatic integration to first half level from lid
+
+          k = nz1
+          ppb(k,i) = ptop/(1.0-0.5*(zgrid(k+1,i)-zgrid(k,i))*gravity/(rgas*t0b))
+          rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
+
+          do k=nz1-1, 1, -1
+
+            ppb(k,i) = ppb(k+1,i)*(1.0+0.5*(zgrid(k+2,i)-zgrid(k+1,i))*gravity/(rgas*t0b))/  &
+                                  (1.0-0.5*(zgrid(k+1,i)-zgrid(k  ,i))*gravity/(rgas*t0b))
+            rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
+           
+          end do
+
+          do k=1,nz1
+            pb (k,i) = (ppb(k,i)/p0)**(rgas/cp)
+            tb (k,i) = t0b/pb(k,i)
+            rtb(k,i) = rb(k,i)*tb(k,i)
+            p  (k,i) = pb(k,i)
+          end do
+
+
+          if(i == nCells) then
+            call mpas_log_write(' discrete hydrostatic reference state, column $i ',intArgs=(/i/))
+            do k=1,nz1
+              call mpas_log_write(' k, ppb, pb, rb, tb (k,1), $i, $r, $r, $r, $r ',intArgs=(/k/),realArgs=(/ppb(k,1),pb(k,1),rb(k,1)*zz(k,1),tb(k,1)/))
+            end do
+          end if
+
+        else
+
           do k=1,nz1
             ztemp    = .5*(zgrid(k+1,i)+zgrid(k,i))
             ppb(k,i) = p0*exp(-gravity*ztemp/(rgas*t0b)) 
@@ -1781,43 +1837,6 @@ module init_atm_cases
 
          if(i == 1) then
            call mpas_log_write(' analytic hydrostatic reference state ')
-           do k=1,nz1
-             call mpas_log_write(' k, ppb, pb, rb, tb (k,1), $i, $r, $r, $r, $r ',intArgs=(/k/),realArgs=(/ppb(k,1),pb(k,1),rb(k,1)*zz(k,1),tb(k,1)/))
-           end do
-         end if
-
-       if(discrete_hydrostatic_base) then ! analytic is first guess (for p, density)
-
-         ztemp = zgrid(nz,i)
-         ptop = p0*exp(-gravity*ztemp/(rgas*t0b)) ! lid pressure
-         pitop = (ptop/p0)**(rgas/cp)             ! lid exner function
-         rhotop = ptop/(rgas*t0b*zz(nz1,i))         ! lid coupled density
-         thetatop = t0b/pitop                     ! lid potential temperature
-
-         ! downward hydrostatic integration to first half level from lid
-
-         k = nz1
-         ppb(k,i) = ptop/(1.0-0.5*(zgrid(k+1,i)-zgrid(k,i))*gravity/(rgas*t0b))
-         rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
-
-         do k=nz1-1, 1, -1
-
-           ppb(k,i) = ppb(k+1,i)*(1.0+0.5*(zgrid(k+2,i)-zgrid(k+1,i))*gravity/(rgas*t0b))/  &
-                                 (1.0-0.5*(zgrid(k+1,i)-zgrid(k  ,i))*gravity/(rgas*t0b))
-           rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
-           
-         end do
-
-         do k=1,nz1
-           pb (k,i) = (ppb(k,i)/p0)**(rgas/cp)
-           tb (k,i) = t0b/pb(k,i)
-           rtb(k,i) = rb(k,i)*tb(k,i)
-           p  (k,i) = pb(k,i)
-         end do
-
-
-         if(i == nCells) then
-           call mpas_log_write(' discrete hydrostatic reference state, column $i ',intArgs=(/i/))
            do k=1,nz1
              call mpas_log_write(' k, ppb, pb, rb, tb (k,1), $i, $r, $r, $r, $r ',intArgs=(/k/),realArgs=(/ppb(k,1),pb(k,1),rb(k,1)*zz(k,1),tb(k,1)/))
            end do
@@ -2662,6 +2681,15 @@ module init_atm_cases
             theta(k,iCell) = t(k,iCell) / (1.0 + 1.61 * scalars(index_qv,k,iCell))
          end do
       end do
+
+      ! both the reference state and the perturbation state are in discrete hydrostatic balance,
+      ! hence full variables are in hydrostatic balance.
+      ! if no reference state is desired, set reference state put into the init file to zero
+
+      if (no_reference_state) then
+        tb(:,:) = 0.0
+        rb(:,:) = 0.
+      end if
 
    end subroutine init_atm_case_squall_line
 
