@@ -1957,7 +1957,7 @@ module atm_time_integration
       integer, intent(in) :: cellSolveStart, cellSolveEnd, edgeSolveStart, edgeSolveEnd
 
 
-      real (kind=RKIND), dimension(:,:), pointer :: zz, cqw, p, t, rb, rtb, pb, rt
+      real (kind=RKIND), dimension(:,:), pointer :: zz, cqw, p, t, rb, rtb, pb, rt, rho_zz
       real (kind=RKIND), dimension(:,:), pointer :: cofwr, cofwz, coftz, cofwt, a_tri, alpha_tri, gamma_tri
       real (kind=RKIND), dimension(:), pointer :: cofrz, rdzw, fzm, fzp, rdzu
       real (kind=RKIND), dimension(:,:,:), pointer :: scalars
@@ -1991,6 +1991,7 @@ module atm_time_integration
       call mpas_pool_get_array(diag, 'cofwt', cofwt)
       call mpas_pool_get_array(diag, 'cofrz', cofrz)
 
+      call mpas_pool_get_array(state, 'rho_zz', rho_zz, 2)
       call mpas_pool_get_array(state, 'theta_m', t, 2)
       call mpas_pool_get_array(state, 'scalars', scalars, 2)
 
@@ -2000,7 +2001,7 @@ module atm_time_integration
 
 
       call atm_compute_vert_imp_coefs_work(nCells, moist_start, moist_end, dts, epssm, &
-                                   zz, cqw, p, t, rb, rtb, pb, rt, cofwr, cofwz, coftz, cofwt, &
+                                   zz, cqw, p, t, rb, rho_zz, rtb, pb, rt, cofwr, cofwz, coftz, cofwt, &
                                    a_tri, alpha_tri, gamma_tri, cofrz, rdzw, fzm, fzp, rdzu, scalars, &
                                    cellStart, cellEnd, edgeStart, edgeEnd, &
                                    cellSolveStart, cellSolveEnd, edgeSolveStart, edgeSolveEnd)
@@ -2010,7 +2011,7 @@ module atm_time_integration
 
 
    subroutine atm_compute_vert_imp_coefs_work(nCells, moist_start, moist_end, dts, epssm, &
-                                   zz, cqw, p, t, rb, rtb, pb, rt, cofwr, cofwz, coftz, cofwt, &
+                                   zz, cqw, p, t, rb, rho_zz, rtb, pb, rt, cofwr, cofwz, coftz, cofwt, &
                                    a_tri, alpha_tri, gamma_tri, cofrz, rdzw, fzm, fzp, rdzu, scalars, &
                                    cellStart, cellEnd, edgeStart, edgeEnd, &
                                    cellSolveStart, cellSolveEnd, edgeSolveStart, edgeSolveEnd)
@@ -2031,6 +2032,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: cqw
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: p
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: t
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: rho_zz
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: rb
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: rtb
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: pb
@@ -2060,6 +2062,8 @@ module atm_time_integration
       real (kind=RKIND) :: dtseps, c2, qtotal, rcv
       real (kind=RKIND), dimension( nVertLevels ) :: b_tri, c_tri
 
+      logical, parameter :: no_reference_state = .true.
+
 
       !  set coefficients
       dtseps = .5*dts*(1.+epssm)
@@ -2085,19 +2089,23 @@ module atm_time_integration
             coftz(k,iCell) = dtseps*   (fzm(k)*t (k,iCell)+fzp(k)*t (k-1,iCell))
          end do
          coftz(nVertLevels+1,iCell) = 0.0
+
+         if( no_reference_state ) then
 !DIR$ IVDEP
-         do k=1,nVertLevels
+           do k=1,nVertLevels
+              qtotal = qtot(k,iCell)
+              cofwt(k,iCell) = .5*dtseps*rcv*rho_zz(k,iCell)*zz(k,iCell)*gravity*rb(k,iCell)/  &
+                          ((1.+qtotal)*(rtb(k,iCell)+rt(k,iCell)))
+           end do
 
-!            qtotal = 0.
-!            do iq = moist_start, moist_end
-!               qtotal = qtotal + scalars(iq, k, iCell)
-!            end do
-            qtotal = qtot(k,iCell)
-
-            cofwt(k,iCell) = .5*dtseps*rcv*zz(k,iCell)*gravity*rb(k,iCell)/(1.+qtotal)  &
-                                *p(k,iCell)/((rtb(k,iCell)+rt(k,iCell))*pb(k,iCell))
-!            cofwt(k,iCell) = 0.
-         end do
+         else
+!DIR$ IVDEP
+           do k=1,nVertLevels
+              qtotal = qtot(k,iCell)
+              cofwt(k,iCell) = .5*dtseps*rcv*zz(k,iCell)*gravity*rb(k,iCell)/(1.+qtotal)  &
+                                  *p(k,iCell)/((rtb(k,iCell)+rt(k,iCell))*pb(k,iCell))
+           end do
+         end if
 
          a_tri(1,iCell) = 0.  ! note, this value is never used
          b_tri(1) = 1.    ! note, this value is never used
