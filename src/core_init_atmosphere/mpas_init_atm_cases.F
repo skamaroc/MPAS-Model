@@ -681,8 +681,14 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
+
+         ! fzp and fzm for interp to w
          fzp (k)  = .5* dzw(k  )/dzu(k)
          fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp and fzm for vertical integral over w volume
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
+
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
@@ -2330,8 +2336,14 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
+         
+         ! fzp and fzm for interp to w
          fzp (k)  = .5* dzw(k  )/dzu(k)
          fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp and fzm for vertical integral over w volume
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
+
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
@@ -2928,8 +2940,14 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
+
+         ! fzp and fzm for interp to w
          fzp (k)  = .5* dzw(k  )/dzu(k)
          fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp and fzm for vertical integral over w volume
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
+
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
@@ -3912,8 +3930,14 @@ module init_atm_cases
       do k=2,nz1
          dzu (k)  = .5*(dzw(k)+dzw(k-1))
          rdzu(k)  =  1./dzu(k)
+
+         ! fzp and fzm for interp to w
          fzp (k)  = .5* dzw(k  )/dzu(k)
          fzm (k)  = .5* dzw(k-1)/dzu(k)
+         ! fzp and fzm for vertical integral over w volume
+         fzm (k)  = .5* dzw(k  )/dzu(k)
+         fzp (k)  = .5* dzw(k-1)/dzu(k)
+
          rdzwp(k) = dzw(k-1)/(dzw(k  )*(dzw(k)+dzw(k-1)))
          rdzwm(k) = dzw(k  )/(dzw(k-1)*(dzw(k)+dzw(k-1)))
       end do
