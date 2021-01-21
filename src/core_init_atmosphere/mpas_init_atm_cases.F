@@ -5916,6 +5916,7 @@ call mpas_log_write('Done with soil consistency check')
 
       real (kind=RKIND) :: max_zgrid_local, max_zgrid_global
 
+      real (kind=RKIND) :: ptop, pitop, rhotop, thetatop
 
       call mpas_log_write('Interpolating LBCs at time '//trim(timestamp))
 
@@ -6456,19 +6457,79 @@ call mpas_log_write('Done with soil consistency check')
       !
       ! Reference state based on a dry isothermal atmosphere
       !
-      do iCell=1,nCells
-         do k=1,nVertLevels
-            ztemp    = 0.5*(zgrid(k+1,iCell)+zgrid(k,iCell))
-            ppb(k,iCell) = p0*exp(-gravity*ztemp/(rgas*t0b))      ! pressure_base
-            pb (k,iCell) = (ppb(k,iCell)/p0)**(rgas/cp)           ! exner_base
-            rb (k,iCell) = ppb(k,iCell)/(rgas*t0b)                ! rho_base
-            tb (k,iCell) = t0b/pb(k,iCell)                        ! theta_base
-            rtb(k,iCell) = rb(k,iCell)*tb(k,iCell)                ! rtheta_base
-            p  (k,iCell) = pb(k,iCell)                            ! exner
-            pp (k,iCell) = 0.                                     ! pressure_p
-            rr (k,iCell) = 0.                                     ! rho_p
+
+        if(no_reference_state) then
+
+          do iCell=1,nCells
+
+            if (iCell == 1) call mpas_log_write(' full variables - zero reference state ')
+
+            do k=1,nVertLevels
+              ppb(k,i) = 0.
+              pb (k,i) = 0.
+              rb (k,i) = 0.
+              tb (k,i) = 0.
+              rtb(k,i) = 0.
+              p  (k,i) = 0.
+              pp (k,i) = 0.
+              rr (k,i) = 0.
+            end do
+          end do
+
+        else if(discrete_hydrostatic_base) then ! analytic is first guess (for p, density)
+
+          do iCell=1,nCells
+
+            if (iCell == 1) call mpas_log_write(' discrete hydrostatically balanced reference state ')
+
+            ztemp = zgrid(nVertLevels+1,i)
+            ptop = p0*exp(-gravity*ztemp/(rgas*t0b)) ! lid pressure
+            pitop = (ptop/p0)**(rgas/cp)             ! lid exner function
+            rhotop = ptop/(rgas*t0b*zz(nVertLevels,i))         ! lid coupled density
+            thetatop = t0b/pitop                     ! lid potential temperature
+
+            ! downward hydrostatic integration to first half level from lid
+
+            k = nVertLevels
+            ppb(k,i) = ptop/(1.0-0.5*(zgrid(k+1,i)-zgrid(k,i))*gravity/(rgas*t0b))
+            rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
+
+            do k=nVertLevels-1, 1, -1
+
+              ppb(k,i) = ppb(k+1,i)*(1.0+0.5*(zgrid(k+2,i)-zgrid(k+1,i))*gravity/(rgas*t0b))/  &
+                                    (1.0-0.5*(zgrid(k+1,i)-zgrid(k  ,i))*gravity/(rgas*t0b))
+              rb (k,i) = ppb(k,i)/(rgas*t0b*zz(k,i))
+           
+            end do
+
+            do k=1,nVertLevels
+              rb (k,i) = rb(k,i)*zz(k,i)
+              pb (k,i) = (ppb(k,i)/p0)**(rgas/cp)
+              tb (k,i) = t0b/pb(k,i)
+              rtb(k,i) = rb(k,i)*tb(k,i)
+              p  (k,i) = pb(k,i)
+            end do
+
          end do
-      end do
+
+      else ! analytic reference state
+
+        do iCell=1,nCells
+           do k=1,nVertLevels
+              ztemp    = 0.5*(zgrid(k+1,iCell)+zgrid(k,iCell))
+              ppb(k,iCell) = p0*exp(-gravity*ztemp/(rgas*t0b))      ! pressure_base
+              pb (k,iCell) = (ppb(k,iCell)/p0)**(rgas/cp)           ! exner_base
+!            rb (k,iCell) = ppb(k,iCell)/(rgas*t0b*zz(k,iCell))    ! rho_base
+              rb (k,iCell) = ppb(k,iCell)/(rgas*t0b)                ! rho_base
+              tb (k,iCell) = t0b/pb(k,iCell)                        ! theta_base
+              rtb(k,iCell) = rb(k,iCell)*tb(k,iCell)                ! rtheta_base
+              p  (k,iCell) = pb(k,iCell)                            ! exner
+              pp (k,iCell) = 0.                                     ! pressure_p
+              rr (k,iCell) = 0.                                     ! rho_p
+           end do
+        end do
+
+      end if
 
       do iCell=1,nCells
          do k=1,nVertLevels
