@@ -3102,30 +3102,34 @@ module init_atm_cases
 !
 !     reference sounding based on dry atmosphere
 !
-      pitop = 1.-.5*dzw(1)*gravity/(cp*tb(1,1)*zz(1,1))
-      do k=2,nz1
-         pitop = pitop-dzu(k)*gravity/(cp*(fzm(k)*tb(k,1)+fzp(k)*tb(k-1,1))   &
-                                         *(fzm(k)*zz(k,1)+fzp(k)*zz(k-1,1)))
-      end do
-      pitop = pitop-.5*dzw(nz1)*gravity/(cp*tb(nz1,1)*zz(nz1,1))
-      ptopb = p0*pitop**(1./rcp)
+       pitop = 1.-.5*dzw(1)*gravity/(cp*tb(1,1)*zz(1,1))
+       do k=2,nz1
+          pitop = pitop-dzu(k)*gravity/(cp*(fzm(k)*tb(k,1)+fzp(k)*tb(k-1,1))   &
+                                          *(fzm(k)*zz(k,1)+fzp(k)*zz(k-1,1)))
+       end do
+       pitop = pitop-.5*dzw(nz1)*gravity/(cp*tb(nz1,1)*zz(nz1,1))
+       ptopb = p0*pitop**(1./rcp)
                 
-      do i=1, nCells
+       if (i == 1) call mpas_log_write(' discrete hydrostatically balanced reference state ')
+
+       do i=1, nCells
          pb(nz1,i) = pitop+.5*dzw(nz1)*gravity/(cp*tb(nz1,i)*zz(nz1,i))
          p (nz1,i) = pitop+.5*dzw(nz1)*gravity/(cp*t (nz1,i)*zz(nz1,i))
+
          do k=nz1-1,1,-1
-            pb(k,i)  = pb(k+1,i) + dzu(k+1)*gravity/(cp*.5*(tb(k,i)+tb(k+1,i))   &
-                                           *.5*(zz(k,i)+zz(k+1,i)))
-            p (k,i)  = p (k+1,i) + dzu(k+1)*gravity/(cp*.5*(t (k,i)+t (k+1,i))   &
-                                           *.5*(zz(k,i)+zz(k+1,i)))
+           pb(k,i)  = pb(k+1,i) + dzu(k+1)*gravity/(cp*.5*(tb(k,i)+tb(k+1,i))   &
+                                       *.5*(zz(k,i)+zz(k+1,i)))
+           p (k,i)  = p (k+1,i) + dzu(k+1)*gravity/(cp*.5*(t (k,i)+t (k+1,i))   &
+                                       *.5*(zz(k,i)+zz(k+1,i)))
          end do
          do k=1,nz1
-            rb (k,i) = pb(k,i)**(1./rcv)/((rgas/p0)*tb(k,i)*zz(k,i))
-            rtb(k,i) = rb(k,i)*tb(k,i)
-            rr (k,i) = p (k,i)**(1./rcv)/((rgas/p0)*t (k,i)*zz(k,i))-rb(k,i)
-            cqw(k,i) = 1.
+           rb (k,i) = pb(k,i)**(1./rcv)/((rgas/p0)*tb(k,i)*zz(k,i))
+           rtb(k,i) = rb(k,i)*tb(k,i)
+           rr (k,i) = p (k,i)**(1./rcv)/((rgas/p0)*t (k,i)*zz(k,i))-rb(k,i)
+           cqw(k,i) = 1.0
          end do
-      end do
+
+       end do
 
        call mpas_log_write(' ***** base state sounding ***** ')
        call mpas_log_write('k       pb        p         rb         rtb         rr          tb          t')
@@ -3339,6 +3343,18 @@ module init_atm_cases
             theta(k,iCell) = t(k,iCell) / (1.0 + 1.61 * scalars(index_qv,k,iCell))
          end do
       end do
+
+! the initialization above produces a discrete hydrostatic balance reference and perturbation state, 
+! hence the full state satisfies mpas discrete hydrostatic balance.  if a zero reference state is
+! desired we set it here.
+
+      if (no_reference_state) then
+        call mpas_log_write(' zero out reference state ')
+        tb(:,:) = 0.0
+        rb(:,:) = 0.
+      else
+        call mpas_log_write(' full reference state retained ')
+      end if
 
    end subroutine init_atm_case_mtn_wave
 
