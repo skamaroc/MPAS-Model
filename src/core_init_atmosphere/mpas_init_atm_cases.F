@@ -770,6 +770,9 @@ module init_atm_cases
           zz_2d(k,i) = (zw(k+1)-zw(k))/(zgrid_2d(k+1,i)-zgrid_2d(k,i))
         end do
 
+
+        !  reference state for 2D slab (latitude-height) fields
+
         do k=1,nz1
           ztemp    = .5*(zgrid_2d(k+1,i)+zgrid_2d(k,i))
           ppb_2d(k,i) = p0*exp(-gravity*ztemp/(rgas*t0b)) 
@@ -822,9 +825,13 @@ module init_atm_cases
               rr_2d(k,i)  = (pp_2d(k,i)/(rgas*zz_2d(k,i)) - rb_2d(k,i)*(tt(k)-t0b))/tt(k)
             end do
 
-            ppi(1) = p0-.5*dzw(1)*gravity                            &
-                          *(1.25*(rr_2d(1,i)+rb_2d(1,i))*(1.+qv_2d(1,i))   &
-                            -.25*(rr_2d(2,i)+rb_2d(2,i))*(1.+qv_2d(2,i)))
+            ! original method for surface pressure
+            ! ppi(1) = p0-.5*dzw(1)*gravity                                  &
+            !               *(1.25*(rr_2d(1,i)+rb_2d(1,i))*(1.+qv_2d(1,i))   &
+            !                 -.25*(rr_2d(2,i)+rb_2d(2,i))*(1.+qv_2d(2,i)))
+
+            ! new method for surface pressure, WCS 26 Janaury 2021
+            ppi(1) = p0-.5*dzw(1)*gravity*(rr_2d(1,i)+rb_2d(1,i))*(1.+qv_2d(1,i))
 
             ppi(1) = ppi(1)-ppb_2d(1,i)
             do k=1,nz1-1
@@ -950,9 +957,14 @@ module init_atm_cases
               rr(k,i)  = (pp(k,i)/(rgas*zz(k,i)) - rb(k,i)*(tt(k)-t0b))/tt(k)
             end do
 
-            ppi(1) = p0-.5*dzw(1)*gravity                         &
-                          *(1.25*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))   &
-                            -.25*(rr(2,i)+rb(2,i))*(1.+scalars(index_qv,2,i)))
+            ! original method for surface pressure
+            ! ppi(1) = p0-.5*dzw(1)*gravity                         &
+            !                *(1.25*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))   &
+            !                  -.25*(rr(2,i)+rb(2,i))*(1.+scalars(index_qv,2,i)))
+
+            ! new method for surface pressure, WCS 26 Janaury 2021
+            ppi(1) = p0-.5*dzw(1)*gravity*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))
+
 
             ppi(1) = ppi(1)-ppb(1,i)
             do k=1,nz1-1
@@ -983,9 +995,11 @@ module init_atm_cases
         end do
 
         !calculation of surface pressure:
-        surface_pressure(i) = 0.5*dzw(1)*gravity                                    &
-                        * (1.25*(rr(1,i) + rb(1,i)) * (1. + scalars(index_qv,1,i))  &
-                        -  0.25*(rr(2,i) + rb(2,i)) * (1. + scalars(index_qv,2,i)))
+        ! original method for surface pressure
+        ! surface_pressure(i) = 0.5*dzw(1)*gravity                                    &
+        !                 * (1.25*(rr(1,i) + rb(1,i)) * (1. + scalars(index_qv,1,i))  &
+        !                 -  0.25*(rr(2,i) + rb(2,i)) * (1. + scalars(index_qv,2,i)))
+        surface_pressure(i) = 0.5*dzw(1)*gravity*(rr(1,i) + rb(1,i)) * (1. + scalars(index_qv,1,i))
         surface_pressure(i) = surface_pressure(i) + pp(1,i) + ppb(1,i)
 
       end do  ! end loop over cells
@@ -1173,11 +1187,11 @@ module init_atm_cases
       end do
 
       do i=1,10
-        psurf = (cf1*(ppb(1,i)+pp(1,i)) + cf2*(ppb(2,i)+pp(2,i)) + cf3*(ppb(3,i)+pp(3,i)))/100.
-
-            psurf = (ppb(1,i)+pp(1,i)) + .5*dzw(1)*gravity        &
-                          *(1.25*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))   &
-                            -.25*(rr(2,i)+rb(2,i))*(1.+scalars(index_qv,2,i)))
+            ! original method
+            ! psurf = (ppb(1,i)+pp(1,i)) + .5*dzw(1)*gravity        &
+            !               *(1.25*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))   &
+            !                 -.25*(rr(2,i)+rb(2,i))*(1.+scalars(index_qv,2,i)))
+            psurf = (ppb(1,i)+pp(1,i)) + .5*dzw(1)*gravity*(rr(1,i)+rb(1,i))*(1.+scalars(index_qv,1,i))
 
         call mpas_log_write(' i, psurf, lat = $i $r $r', intArgs=(/i/), realArgs=(/psurf,latCell(i)*180./3.1415828/))
       end do
