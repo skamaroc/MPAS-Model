@@ -32,7 +32,7 @@ module init_atm_cases
 
    logical, parameter :: discrete_hydrostatic_base = .true.
    logical, parameter :: perturbation_state_init = .false.
-   logical, parameter :: no_reference_state = .true.
+   logical, parameter :: no_reference_state = .false.
 
    contains
 
@@ -1203,6 +1203,11 @@ module init_atm_cases
             theta(k,iCell) = t(k,iCell) / (1.0 + 1.61 * scalars(index_qv,k,iCell))
          end do
       end do
+
+      if (no_reference_state) then
+        tb(:,:) = 0.0
+        rb(:,:) = 0.
+      end if
 
    end subroutine init_atm_case_jw
 
