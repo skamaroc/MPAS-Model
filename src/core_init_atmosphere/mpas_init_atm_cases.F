@@ -344,9 +344,9 @@ module init_atm_cases
       else if ((config_init_case == 10) .or. (config_init_case == 11) .or. (config_init_case == 12)) then
 
          call mpas_log_write(' dcmip test case setup - Ullich, Melvin & Jablonowski idealized baroclinic wave test case')
-         if (config_init_case == 11) call mpas_log_write(' no initial perturbation ')
-         if (config_init_case == 12) call mpas_log_write(' exponential type initial perturbation included ')
-         if (config_init_case == 13) call mpas_log_write(' stream-function type initial perturbation included ')
+         if (config_init_case == 10) call mpas_log_write(' no initial perturbation ')
+         if (config_init_case == 11) call mpas_log_write(' exponential type initial perturbation included ')
+         if (config_init_case == 12) call mpas_log_write(' stream-function type initial perturbation included ')
          block_ptr => domain % blocklist
          do while (associated(block_ptr))
 
