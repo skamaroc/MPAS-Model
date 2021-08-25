@@ -466,6 +466,8 @@
 			<var name="deriv_two"/>
 			<var name="defc_a"/>
 			<var name="defc_b"/>
+                        <var name="deformation_coef_c"/>
+                        <var name="deformation_coef_s"/>
 			<var name="coeffs_reconstruct"/>
 			<var_array name="scalars"/>
 			<var name="initial_time"/>
@@ -598,6 +600,8 @@
 			<var name="deriv_two"/>
 			<var name="defc_a"/>
 			<var name="defc_b"/>
+                        <var name="deformation_coef_c"/>
+                        <var name="deformation_coef_s"/>
 			<var name="coeffs_reconstruct"/>
 			<var name="east"/>
 			<var name="north"/>
@@ -910,6 +914,7 @@
 			<var name="ke"/>
 			<var name="uReconstructZonal"/>
 			<var name="uReconstructMeridional"/>
+			<var name="frontogenesisFunction"/>
 
                         <!-- Begin Ertel PV diagnostics defined in diagnostics/Registry_pv.xml -->
 			<var name="ertel_pv"/>
@@ -1370,6 +1375,12 @@
                 <var name="defc_b" type="real" dimensions="maxEdges nCells" units="unitless"
                      description="Coefficients for computing the diagonal components of the horizontal deformation"/>
 
+                <var name="deformation_coef_c" type="real" dimensions="maxEdges nCells" units="unitless"
+                     description="Coefficients for computing the cos-only terms of the 3d deformation"/>
+
+                <var name="deformation_coef_s" type="real" dimensions="maxEdges nCells" units="unitless"
+                     description="Coefficients for computing the sine-only terms of the 3d deformation"/>
+
                 <!-- Arrays required for reconstruction of velocity field -->
                 <var name="coeffs_reconstruct" type="real" dimensions="R3 maxEdges nCells" units="unitless"
                      description="Coefficients to reconstruct velocity vectors at cell centers"/>
@@ -1700,6 +1711,9 @@
 
                 <var name="tend_rtheta_adv" type="real" dimensions="nVertLevels nCells Time" units="kg K m^{-3} s^{-1}"
                      description="flux divergence for rho*theta_m/zz, used in the Tiedtke convective parameterization"/>
+
+                <var name="frontogenesisFunction" type="real" dimensions="nVertLevels nCells Time" units="K^2 m^{-2} s^{-1}"
+                     description="Diagnosed fontogenesis function"/>
 
                 <var name="surface_pressure" type="real" dimensions="nCells Time" units="Pa"
                      description="Diagnosed surface pressure"/>
