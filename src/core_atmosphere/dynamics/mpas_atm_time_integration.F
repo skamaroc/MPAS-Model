@@ -4292,6 +4292,8 @@ module atm_time_integration
       real (kind=RKIND), dimension(:,:), pointer :: ur_cell, vr_cell
 
       real (kind=RKIND), dimension(:,:), pointer :: defc_a, defc_b
+      real (kind=RKIND), dimension(:,:), pointer :: deformation_coef_c, deformation_coef_s
+      real (kind=RKIND), dimension(:,:), pointer :: frontogenesisFunction
 
       real(kind=RKIND), dimension(:,:), pointer :: tend_w_pgf, tend_w_buoy
 
@@ -4360,6 +4362,7 @@ module atm_time_integration
       call mpas_pool_get_array(diag, 'pressure_base', pressure_b)
       call mpas_pool_get_array(diag, 'h_divergence', h_divergence)
       call mpas_pool_get_array(diag, 'exner', exner)
+      call mpas_pool_get_array(diag, 'frontogenesisFunction', frontogenesisFunction)
 
       call mpas_pool_get_array(diag, 'tend_rtheta_adv', tend_rtheta_adv)
       call mpas_pool_get_array(tend_physics, 'rthdynten', rthdynten)
@@ -4389,6 +4392,8 @@ module atm_time_integration
       call mpas_pool_get_array(mesh, 'angleEdge', angleEdge)
       call mpas_pool_get_array(mesh, 'defc_a', defc_a)
       call mpas_pool_get_array(mesh, 'defc_b', defc_b)
+      call mpas_pool_get_array(mesh, 'deformation_coef_c', deformation_coef_c)
+      call mpas_pool_get_array(mesh, 'deformation_coef_s', deformation_coef_s)
       call mpas_pool_get_array(mesh, 'meshScalingDel2', meshScalingDel2)
       call mpas_pool_get_array(mesh, 'meshScalingDel4', meshScalingDel4)
       call mpas_pool_get_array(mesh, 'u_init', u_init)
@@ -4462,6 +4467,7 @@ module atm_time_integration
          cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
          latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
          rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
+         deformation_coef_c, deformation_coef_s, frontogenesisFunction, &
          tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
          config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
          config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
@@ -4489,6 +4495,7 @@ module atm_time_integration
       cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
       latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
       rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
+      deformation_coef_c, deformation_coef_s, frontogenesisFunction, &
       tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
       config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
       config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
@@ -4596,6 +4603,10 @@ module atm_time_integration
 
       real (kind=RKIND), dimension(maxEdges,nCells+1) :: defc_a
       real (kind=RKIND), dimension(maxEdges,nCells+1) :: defc_b
+      real (kind=RKIND), dimension(maxEdges,nCells+1) :: deformation_coef_c
+      real (kind=RKIND), dimension(maxEdges,nCells+1) :: deformation_coef_s
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: frontogenesisFunction
+
 
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: tend_w_pgf
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: tend_w_buoy
@@ -4635,6 +4646,7 @@ module atm_time_integration
       real (kind=RKIND), dimension( nVertLevels+1 ) :: d_diag, d_off_diag, flux_arr
       real (kind=RKIND), dimension( nVertLevels + 1 ) :: wduz, wdwz, wdtz, dpzx
       real (kind=RKIND), dimension( nVertLevels ) :: ru_edge_w, q, u_mix
+      real (kind=RKIND), dimension( nVertLevels ) :: d_divh, theta_x, theta_y
       real (kind=RKIND) :: theta_turb_flux, w_turb_flux, r
       real (kind=RKIND) :: scalar_weight
       real (kind=RKIND) :: inv_r_earth
@@ -4668,6 +4680,41 @@ module atm_time_integration
        v_theta_eddy_visc2 = config_v_theta_eddy_visc2
 
       if (rk_step == 1) then
+
+!  compute the horizontal frontogenesis function at all levels
+!  we are using theta_m instead of theta here.
+
+            do iCell = cellStart,cellEnd
+               d_diag(1:nVertLevels) = 0.0
+               d_off_diag(1:nVertLevels) = 0.0
+               d_divh(1:nVertLevels) = 0.0
+               theta_x(1:nVertLevels) = 0.0
+               theta_y(1:nVertLevels) = 0.0
+
+               do iEdge=1,nEdgesOnCell(iCell)
+                  edge_sign = edgesOnCell_sign(iEdge,iCell) * dvEdge(iEdge) * invAreaCell(iCell)
+                  cell1 = cellsOnEdge(1,iEdge)
+                  cell2 = cellsOnEdge(2,iEdge)
+                  do k=1,nVertLevels
+                     d_diag(k)     = d_diag(k)     + defc_a(iEdge,iCell)*u(k,EdgesOnCell(iEdge,iCell))  &
+                                                   - defc_b(iEdge,iCell)*v(k,EdgesOnCell(iEdge,iCell))
+                     d_off_diag(k) = d_off_diag(k) + defc_b(iEdge,iCell)*u(k,EdgesOnCell(iEdge,iCell))  &
+                                                   + defc_a(iEdge,iCell)*v(k,EdgesOnCell(iEdge,iCell))
+                     d_divh(k) = d_divh(k) + edge_sign * u(k,EdgesOnCell(iEdge,iCell))
+                     theta_x(k) = theta_x(k) + deformation_coef_c(iEdge,iCell)*0.5*(theta_m(k,cell1)+theta_m(k,cell2))
+                     theta_y(k) = theta_y(k) + deformation_coef_s(iEdge,iCell)*0.5*(theta_m(k,cell1)+theta_m(k,cell2))
+                  end do
+               end do
+!DIR$ IVDEP
+               do k=1, nVertLevels
+                  frontogenesisFunction(k,iCell) = 0.5*(            &
+                       -d_divh(k)*(theta_x(k)**2 + theta_y(k)**2)   &
+                       -d_diag(k)*theta_x(k)**2                     &
+                       -2.0*d_off_diag(k)*theta_x(k)*theta_y(k)     &
+                       +d_diag(k)*theta_y(k)**2 )
+               end do
+            end do
+
 
 !         tend_u_euler(1:nVertLevels,edgeStart:edgeEnd) = 0.0
 
