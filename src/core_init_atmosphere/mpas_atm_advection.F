@@ -757,6 +757,7 @@ module atm_advection
 !  local variables
 
       real (kind=RKIND), dimension(:,:), pointer :: defc_a, defc_b
+      real (kind=RKIND), dimension(:,:), pointer :: deformation_coef_c, deformation_coef_s
       integer, dimension(:,:), pointer :: cellsOnEdge, edgesOnCell, cellsOnCell, verticesOnCell
       integer, dimension(:), pointer :: nEdgesOnCell
       real (kind=RKIND), dimension(:), pointer :: xCell, yCell, zCell
@@ -782,6 +783,8 @@ module atm_advection
 
       call mpas_pool_get_array(mesh, 'defc_a', defc_a)
       call mpas_pool_get_array(mesh, 'defc_b', defc_b)
+      call mpas_pool_get_array(mesh, 'deformation_coef_c', deformation_coef_c)
+      call mpas_pool_get_array(mesh, 'deformation_coef_s', deformation_coef_s)
       call mpas_pool_get_array(mesh, 'nEdgesOnCell', nEdgesOnCell)
       call mpas_pool_get_array(mesh, 'cellsOnEdge', cellsOnEdge)
       call mpas_pool_get_array(mesh, 'edgesOnCell', edgesOnCell)
@@ -796,6 +799,9 @@ module atm_advection
 
       defc_a(:,:) = 0.
       defc_b(:,:) = 0.
+
+      deformation_coef_c(:,:) = 0.
+      deformation_coef_s(:,:) = 0.
 
       pii = 2.*asin(1.0)
 
@@ -925,6 +931,8 @@ module atm_advection
             sint_cost = sin(thetat(i))*cos(thetat(i))
             defc_a(i,iCell) = dl*(cost2 - sint2)/area_cell
             defc_b(i,iCell) = dl*2.*sint_cost/area_cell
+            deformation_coef_c(i,iCell) = dl*cos(thetat(i))/area_cell
+            deformation_coef_s(i,iCell) = dl*sin(thetat(i))/area_cell
             if (cellsOnEdge(1,EdgesOnCell(i,iCell)) /= iCell) then
                defc_a(i,iCell) = - defc_a(i,iCell)
                defc_b(i,iCell) = - defc_b(i,iCell)
