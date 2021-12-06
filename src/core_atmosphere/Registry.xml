@@ -915,6 +915,7 @@
 			<var name="uReconstructZonal"/>
 			<var name="uReconstructMeridional"/>
 			<var name="frontogenesisFunction"/>
+			<var name="frontogenesisAngle"/>
 
                         <!-- Begin Ertel PV diagnostics defined in diagnostics/Registry_pv.xml -->
 			<var name="ertel_pv"/>
@@ -1714,6 +1715,9 @@
 
                 <var name="frontogenesisFunction" type="real" dimensions="nVertLevels nCells Time" units="K^2 m^{-2} s^{-1}"
                      description="Diagnosed fontogenesis function"/>
+
+                <var name="frontogenesisAngle" type="real" dimensions="nVertLevels nCells Time" units="radians"
+                     description="atan2(d_theta/dy,d_theta/dx)"/>
 
                 <var name="surface_pressure" type="real" dimensions="nCells Time" units="Pa"
                      description="Diagnosed surface pressure"/>

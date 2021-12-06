@@ -4293,7 +4293,7 @@ module atm_time_integration
 
       real (kind=RKIND), dimension(:,:), pointer :: defc_a, defc_b
       real (kind=RKIND), dimension(:,:), pointer :: deformation_coef_c, deformation_coef_s
-      real (kind=RKIND), dimension(:,:), pointer :: frontogenesisFunction
+      real (kind=RKIND), dimension(:,:), pointer :: frontogenesisFunction, frontogenesisAngle
 
       real(kind=RKIND), dimension(:,:), pointer :: tend_w_pgf, tend_w_buoy
 
@@ -4363,6 +4363,7 @@ module atm_time_integration
       call mpas_pool_get_array(diag, 'h_divergence', h_divergence)
       call mpas_pool_get_array(diag, 'exner', exner)
       call mpas_pool_get_array(diag, 'frontogenesisFunction', frontogenesisFunction)
+      call mpas_pool_get_array(diag, 'frontogenesisAngle', frontogenesisAngle)
 
       call mpas_pool_get_array(diag, 'tend_rtheta_adv', tend_rtheta_adv)
       call mpas_pool_get_array(tend_physics, 'rthdynten', rthdynten)
@@ -4467,7 +4468,7 @@ module atm_time_integration
          cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
          latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
          rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
-         deformation_coef_c, deformation_coef_s, frontogenesisFunction, &
+         deformation_coef_c, deformation_coef_s, frontogenesisFunction, frontogenesisAngle, &
          tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
          config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
          config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
@@ -4495,7 +4496,7 @@ module atm_time_integration
       cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
       latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
       rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
-      deformation_coef_c, deformation_coef_s, frontogenesisFunction, &
+      deformation_coef_c, deformation_coef_s, frontogenesisFunction, frontogenesisAngle, &
       tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
       config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
       config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
@@ -4606,6 +4607,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(maxEdges,nCells+1) :: deformation_coef_c
       real (kind=RKIND), dimension(maxEdges,nCells+1) :: deformation_coef_s
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: frontogenesisFunction
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: frontogenesisAngle
 
 
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: tend_w_pgf
@@ -4712,6 +4714,7 @@ module atm_time_integration
                        -d_diag(k)*theta_x(k)**2                     &
                        -2.0*d_off_diag(k)*theta_x(k)*theta_y(k)     &
                        +d_diag(k)*theta_y(k)**2 )
+                  frontogenesisAngle(k,iCell) = atan2(theta_y(k),theta_x(k))
                end do
             end do
 
