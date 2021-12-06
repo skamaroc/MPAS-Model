@@ -778,7 +778,7 @@ module atm_advection
 
       integer :: iv
       logical :: do_the_cell
-      real (kind=RKIND) :: area_cell, sint2, cost2, sint_cost, area_cellt
+      real (kind=RKIND) :: area_cell, sint2, cost2, sint_cost, area_cellt, dx, dy
 
 
       call mpas_pool_get_array(mesh, 'defc_a', defc_a)
@@ -823,14 +823,16 @@ module atm_advection
 
          if (.not. do_the_cell) cycle
 
-
-!  compute poynomial fit for this cell if all needed neighbors exist
+         !  compute poynomial fit for this cell if all needed neighbors exist
+         
          if (on_a_sphere) then
+
+            ! xc holds the center point and the vertex points of the cell,
+            ! normalized to a sphere or radius 1.
 
             xc(1) = xCell(iCell)/sphere_radius
             yc(1) = yCell(iCell)/sphere_radius
             zc(1) = zCell(iCell)/sphere_radius
-
 
             do i=2,n
                iv = verticesOnCell(i-1,iCell)
@@ -848,14 +850,22 @@ module atm_advection
             if (zc(1) == 1.0) then
                theta_abs(iCell) = pii/2.
             else
+               ! theta_abs is the angle to the first vertex from the center, normalized so that
+               ! an eastward pointing vector has a angle of 0.
                theta_abs(iCell) =  pii/2. - sphere_angle( xc(1), yc(1), zc(1),  &
                                                           xc(2), yc(2), zc(2),  &
                                                           0.0_RKIND, 0.0_RKIND, 1.0_RKIND ) 
             end if
 
+            ! here we are constructing the tangent-plane cell.
+            ! thetat is the angle in the (x,y) tangent-plane coordinate from
+            ! the cell center to each vertex, normalized so that an
+            ! eastward pointing vector has a angle of 0.
 
-! angles from cell center to neighbor centers (thetav)
+            ! dl_sphere is the spherical distance from the cell center
+            ! to the sphere vertex points for the cell.
 
+            thetat(1) = theta_abs(iCell)
             do i=1,n-1
    
                ip2 = i+2
@@ -864,22 +874,13 @@ module atm_advection
                thetav(i) = sphere_angle( xc(1),   yc(1),   zc(1),    &
                                          xc(i+1), yc(i+1), zc(i+1),  &
                                          xc(ip2), yc(ip2), zc(ip2)   )
-
                dl_sphere(i) = sphere_radius*arc_length( xc(1),   yc(1),   zc(1),  &
-                                                             xc(i+1), yc(i+1), zc(i+1) )
+                                                        xc(i+1), yc(i+1), zc(i+1) )
+               if(i.gt.1) thetat(i) = thetat(i-1)+thetav(i-1)
             end do
 
-            length_scale = 1.
-            do i=1,n-1
-               dl_sphere(i) = dl_sphere(i)/length_scale
-            end do
-
-            thetat(1) = 0.  !  this defines the x direction, cell center 1 -> 
-!            thetat(1) = theta_abs(iCell)  !  this defines the x direction, longitude line
-            do i=2,n-1
-               thetat(i) = thetat(i-1) + thetav(i-1)
-            end do
-   
+            ! xp and yp are the tangent-plane vertex points with the cell center at (0,0)
+            
             do i=1,n-1
                xp(i) = cos(thetat(i)) * dl_sphere(i)
                yp(i) = sin(thetat(i)) * dl_sphere(i)
@@ -900,28 +901,21 @@ module atm_advection
 
          end if
 
-!         thetat(1) = 0.
-         thetat(1) = theta_abs(iCell)
-         do i=2,n-1
-            ip1 = i+1
-            if (ip1 == n) ip1 = 1
-            thetat(i) = plane_angle( 0.0_RKIND, 0.0_RKIND, 0.0_RKIND,  &
-                                     xp(i)-xp(i-1), yp(i)-yp(i-1), 0.0_RKIND,  &
-                                     xp(ip1)-xp(i), yp(ip1)-yp(i), 0.0_RKIND,  &
-                                     0.0_RKIND, 0.0_RKIND, 1.0_RKIND)
-            thetat(i) = thetat(i) + thetat(i-1)
-         end do
-
+         ! (1) compute cell area on the tangent plane used in the integrals
+         ! (2) compute angle of cell edge normal vector.  here we are repurposing thetat
+         
          area_cell = 0.
-         area_cellt = 0.
          do i=1,n-1
             ip1 = i+1
             if (ip1 == n) ip1 = 1
-            dl = sqrt((xp(ip1)-xp(i))**2 + (yp(ip1)-yp(i))**2)
+            dx = xp(ip1)-xp(i)
+            dy = yp(ip1)-yp(i)
             area_cell = area_cell + 0.25*(xp(i)+xp(ip1))*(yp(ip1)-yp(i)) - 0.25*(yp(i)+yp(ip1))*(xp(ip1)-xp(i))
-            area_cellt = area_cellt + (0.25*(xp(i)+xp(ip1))*cos(thetat(i)) + 0.25*(yp(i)+yp(ip1))*sin(thetat(i)))*dl
+            thetat(i) = atan2(dy,dx)-pii/2.
          end do
 
+         ! coefficients - see documentation for the formulas. 
+         
          do i=1,n-1
             ip1 = i+1
             if (ip1 == n) ip1 = 1
@@ -944,4 +938,4 @@ module atm_advection
 
    end subroutine atm_initialize_deformation_weights
 
-end module atm_advection
+ end module atm_advection
