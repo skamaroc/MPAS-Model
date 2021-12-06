@@ -4693,8 +4693,8 @@ module atm_time_integration
 
                do iEdge=1,nEdgesOnCell(iCell)
                   edge_sign = edgesOnCell_sign(iEdge,iCell) * dvEdge(iEdge) * invAreaCell(iCell)
-                  cell1 = cellsOnEdge(1,iEdge)
-                  cell2 = cellsOnEdge(2,iEdge)
+                  cell1 = cellsOnEdge(1,edgesOnCell(iEdge,iCell))
+                  cell2 = cellsOnEdge(2,edgesOnCell(iEdge,iCell))
                   do k=1,nVertLevels
                      d_diag(k)     = d_diag(k)     + defc_a(iEdge,iCell)*u(k,EdgesOnCell(iEdge,iCell))  &
                                                    - defc_b(iEdge,iCell)*v(k,EdgesOnCell(iEdge,iCell))
