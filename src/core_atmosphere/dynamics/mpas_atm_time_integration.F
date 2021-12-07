@@ -4694,7 +4694,7 @@ module atm_time_integration
                theta_y(1:nVertLevels) = 0.0
 
                do iEdge=1,nEdgesOnCell(iCell)
-                  edge_sign = edgesOnCell_sign(iEdge,iCell) * dvEdge(iEdge) * invAreaCell(iCell)
+                  edge_sign = edgesOnCell_sign(iEdge,iCell) * dvEdge(edgesOnCell(iEdge,iCell)) * invAreaCell(iCell)
                   cell1 = cellsOnEdge(1,edgesOnCell(iEdge,iCell))
                   cell2 = cellsOnEdge(2,edgesOnCell(iEdge,iCell))
                   do k=1,nVertLevels
