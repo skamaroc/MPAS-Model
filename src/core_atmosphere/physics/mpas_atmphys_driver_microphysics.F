@@ -628,6 +628,8 @@
 !local pointers:
  character(len=StrKIND),pointer:: microp_scheme
  real(kind=RKIND),dimension(:),pointer:: refl10cm_max,refl10cm_1km,refl10cm_1km_max
+ real(kind=RKIND),dimension(:,:),pointer:: refl10cm
+
 
 !local variables and arrays:
  integer:: i,j,k,kp
@@ -641,6 +643,7 @@
  call mpas_pool_get_array(diag_physics,'refl10cm_max',refl10cm_max)
  call mpas_pool_get_array(diag_physics,'refl10cm_1km',refl10cm_1km)
  call mpas_pool_get_array(diag_physics,'refl10cm_1km_max',refl10cm_1km_max)
+ call mpas_pool_get_array(diag_physics,'refl10cm',refl10cm)
 
  microp_select: select case(microp_scheme)
 
@@ -679,6 +682,7 @@
              if(zp(k) .lt. 1000.) kp = k
           enddo
           refl10cm_max(i) = maxval(dBZ1d(:))
+          refl10cm(kts:kte,i) = dBZ1d(kts:kte)
           w1 = (zp(kp+1)-1000.)/(zp(kp+1)-zp(kp))
           w2 = 1.0 - w1
           refl10cm_1km(i) = w1*dBZ1d(kp) + w2*dBZ1d(kp+1)
@@ -729,6 +733,7 @@
              dBZ1d(k) = max(-35._RKIND,dBZ1d(k))
              if(zp(k) .lt. 1000.) kp = k
           enddo
+          refl10cm(kts:kte,i) = dBZ1d(kts:kte)
           refl10cm_max(i) = maxval(dBZ1d(:))
           w1 = (zp(kp+1)-1000.)/(zp(kp+1)-zp(kp))
           w2 = 1.0 - w1
