@@ -233,6 +233,7 @@
 
  real(kind=RKIND):: z0,z1,z2,w1,w2
  real(kind=RKIND):: rho_a,rho1,rho2,tem1,tem2
+ logical, parameter :: use_hydrostatic_pressure = .true.
 
 !-----------------------------------------------------------------------------------------------------------------
 !call mpas_log_write('')
@@ -442,7 +443,9 @@
     pres2_hydd_p(i,k,j) = pres2_p(i,k,j)
     do k = kte,1,-1
        rho_a = rho_p(i,k,j) / (1.+qv_p(i,k,j))
-       pres2_hyd_p(i,k,j)  = pres2_hyd_p(i,k+1,j)  + gravity*rho_p(i,k,j)*dz_p(i,k,j)
+       !! pres2_hyd_p(i,k,j)  = pres2_hyd_p(i,k+1,j)  + gravity*rho_p(i,k,j)*dz_p(i,k,j)
+       pres2_hyd_p(i,k,j)  = pres2_hyd_p(i,k+1,j)  + gravity*rho_a &
+              *(1.0+qv_p(i,k,j)+qc_p(i,k,j)+qr_p(i,k,j)+qi_p(i,k,j)+qs_p(i,k,j)+qg_p(i,k,j))*dz_p(i,k,j)
        pres2_hydd_p(i,k,j) = pres2_hydd_p(i,k+1,j) + gravity*rho_a*dz_p(i,k,j)
     enddo
     !pressure at theta-points:
@@ -466,6 +469,32 @@
     plrad(i) = pres2_p(i,kte+1,j) 
  enddo
  enddo
+
+ if (use_hydrostatic_pressure) then
+
+   do j=jts,jte
+     do k=kts,kte+1
+       do i=its,ite
+         pres2_p(i,k,j) = pres2_hyd_p(i,k,j)
+       end do
+     end do
+   end do
+
+   do j=jts,jte
+     do k=kts,kte+1
+       do i=its,ite
+         pres_p(i,k,j) = pres_hyd_p(i,k,j)
+       end do
+     end do
+   end do
+
+   do j=jts,jte
+     do i=its,ite
+       psfc_p(i,j) = psfc_hyd_p(i,j)
+     end do
+   end do
+
+ end if
 
  end subroutine MPAS_to_physics
 
