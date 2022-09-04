@@ -694,6 +694,7 @@
 !local pointers:
  character(len=StrKIND),pointer:: microp_scheme
  real(kind=RKIND),dimension(:),pointer:: refl10cm_max,refl10cm_1km,refl10cm_1km_max
+ real(kind=RKIND),dimension(:,:),pointer:: refl10cm
 
 !local variables and arrays:
  integer:: i,j,k,kp
@@ -704,6 +705,7 @@
 
  call mpas_pool_get_config(configs,'config_microp_scheme',microp_scheme)
 
+ call mpas_pool_get_array(diag_physics,'refl10cm',refl10cm)
  call mpas_pool_get_array(diag_physics,'refl10cm_max',refl10cm_max)
  call mpas_pool_get_array(diag_physics,'refl10cm_1km',refl10cm_1km)
  call mpas_pool_get_array(diag_physics,'refl10cm_1km_max',refl10cm_1km_max)
@@ -749,6 +751,7 @@
           w2 = 1.0 - w1
           refl10cm_1km(i) = w1*dBZ1d(kp) + w2*dBZ1d(kp+1)
           refl10cm_1km_max(i) = max(refl10cm_1km_max(i),refl10cm_1km(i))
+          refl10cm(:,i) = dBZ1d(:)
        enddo
        enddo
 
@@ -800,6 +803,7 @@
           w2 = 1.0 - w1
           refl10cm_1km(i) = w1*dBZ1d(kp) + w2*dBZ1d(kp+1)
           refl10cm_1km_max(i) = max(refl10cm_1km_max(i),refl10cm_1km(i))
+          refl10cm(:,i) = dBZ1d(:)
        enddo
        enddo
 
