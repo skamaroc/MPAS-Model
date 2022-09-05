@@ -606,7 +606,8 @@ module atm_time_integration
 
 !$OMP PARALLEL DO
                do thread=1,nThreads
-                  call atm_compute_dyn_tend( tend, tend_physics, state, diag, mesh, block % configs, nVertLevels, rk_step, dt, & 
+                  call atm_compute_dyn_tend( tend, tend_physics, state, diag, mesh, block % configs, nVertLevels, &
+                                             rk_step, dynamics_substep, dt, & 
                                              cellThreadStart(thread), cellThreadEnd(thread), &
                                              vertexThreadStart(thread), vertexThreadEnd(thread), &
                                              edgeThreadStart(thread), edgeThreadEnd(thread), &
@@ -4214,7 +4215,8 @@ module atm_time_integration
    end subroutine atm_advance_scalars_mono_work
 
 
-   subroutine atm_compute_dyn_tend(tend, tend_physics, state, diag, mesh, configs, nVertLevels, rk_step, dt, &
+   subroutine atm_compute_dyn_tend(tend, tend_physics, state, diag, mesh, configs, nVertLevels, &
+                                   rk_step, dynamics_substep, dt, &
                                    cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd, &
                                    cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
@@ -4242,7 +4244,7 @@ module atm_time_integration
       type (mpas_pool_type), intent(in) :: mesh
       type (mpas_pool_type), intent(in) :: configs
       integer, intent(in) :: nVertLevels              ! for allocating stack variables
-      integer, intent(in) :: rk_step
+      integer, intent(in) :: rk_step, dynamics_substep
       real (kind=RKIND), intent(in) :: dt
       integer, intent(in) :: cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd
       integer, intent(in) :: cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd
@@ -4270,7 +4272,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(:,:), pointer :: tend_rtheta_adv  ! needed for Tiedtke convection scheme
       real (kind=RKIND), dimension(:,:), pointer :: rthdynten  ! needed for Grell-Freitas convection scheme
 
-      real (kind=RKIND), dimension(:,:,:), pointer :: scalars
+      real (kind=RKIND), dimension(:,:,:), pointer :: scalars, tend_scalars
 
       real (kind=RKIND), dimension(:,:), pointer :: tend_u_euler, tend_w_euler, tend_theta_euler
 
@@ -4404,6 +4406,7 @@ module atm_time_integration
 
       call mpas_pool_get_array(tend, 'u', tend_u)
       call mpas_pool_get_array(tend, 'theta_m', tend_theta)
+      call mpas_pool_get_array(tend, 'scalars_tend', tend_scalars)
       call mpas_pool_get_array(tend, 'w', tend_w)
       call mpas_pool_get_array(tend, 'rho_zz', tend_rho)
       call mpas_pool_get_array(tend, 'rt_diabatic_tend', rt_diabatic_tend)
@@ -4458,13 +4461,14 @@ module atm_time_integration
          divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
          rt_diabatic_tend, tend_theta, tend_w, w, cqw, rb, rr, pp, pressure_b, zz, zxu, cqu, & 
          h_divergence, kdiff, edgesOnCell_sign, edgesOnVertex_sign, rw_save, ru_save, &
-         theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, deriv_two, &
+         theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, tend_scalars, deriv_two, &
          cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
          latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
          rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
          tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
          config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
-         config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
+         config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, &
+         dynamics_substep, rk_step, dt, &
          config_mpas_cam_coef, &
          config_rayleigh_damp_u, config_rayleigh_damp_u_timescale_days, config_number_rayleigh_damp_u_levels, &
          tend_rtheta_adv, rthdynten, &
@@ -4485,13 +4489,14 @@ module atm_time_integration
       divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
       rt_diabatic_tend, tend_theta, tend_w, w, cqw, rb, rr, pp, pressure_b, zz, zxu, cqu, & 
       h_divergence, kdiff, edgesOnCell_sign, edgesOnVertex_sign, rw_save, ru_save, &
-      theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, deriv_two, &
+      theta_m_save, exner, rr_save, scalars, tend_u_euler, tend_w_euler, tend_theta_euler, tend_scalars, deriv_two, &
       cellsOnEdge, verticesOnEdge, edgesOnCell, edgesOnEdge, cellsOnCell, edgesOnVertex, nEdgesOnCell, nEdgesOnEdge, &
       latCell, latEdge, angleEdge, u_init, v_init, advCellsForEdge, nAdvCellsForEdge, adv_coefs, adv_coefs_3rd, &
       rdzu, rdzw, fzm, fzp, qv_init, t_init, cf1, cf2, cf3, r_earth, ur_cell, vr_cell, defc_a, defc_b, &
       tend_w_pgf, tend_w_buoy, coef_3rd_order, c_s, config_mix_full, config_horiz_mixing, config_del4u_div_factor, &
       config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2, &
-      config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, rk_step, dt, &
+      config_h_theta_eddy_visc4, config_h_mom_eddy_visc4, config_visc4_2dsmag, config_len_disp, &
+      dynamics_substep, rk_step, dt, &
       config_mpas_cam_coef, &
       config_rayleigh_damp_u, config_rayleigh_damp_u_timescale_days, config_number_rayleigh_damp_u_levels, &
       tend_rtheta_adv, rthdynten, &
@@ -4537,6 +4542,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: tend_rho
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: rt_diabatic_tend
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: tend_theta
+      real (kind=RKIND), dimension(num_scalars,nVertLevels,nCells+1) :: tend_scalars
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: tend_w
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1) :: w
       real (kind=RKIND), dimension(nVertLevels,nCells+1) :: cqw
@@ -4610,7 +4616,7 @@ module atm_time_integration
       real (kind=RKIND) :: config_len_disp
       real (kind=RKIND) :: config_h_mom_eddy_visc2, config_v_mom_eddy_visc2, config_h_theta_eddy_visc2, config_v_theta_eddy_visc2
 
-      integer, intent(in) :: rk_step
+      integer, intent(in) :: rk_step, dynamics_substep
       real (kind=RKIND), intent(in) :: dt
 
       real (kind=RKIND) :: config_mpas_cam_coef
@@ -4651,6 +4657,8 @@ module atm_time_integration
 
       real (kind=RKIND) :: flux3, flux4
       real (kind=RKIND) :: q_im2, q_im1, q_i, q_ip1, ua, coef3
+      logical :: mix_scalars 
+      logical, parameter :: inline_theta_mix = .false.
 
       flux4(q_im2, q_im1, q_i, q_ip1, ua) =                     &
                 ua*( 7.*(q_i + q_im1) - (q_ip1 + q_im2) )/12.0
@@ -5275,6 +5283,10 @@ module atm_time_integration
 
       if (rk_step == 1) then
 
+       if(inline_theta_mix) then
+
+         call mpas_log_write(' inline theta_m mixing ')
+
          delsq_theta(1:nVertLevels,cellStart:cellEnd) = 0.0
 
          do iCell=cellStart,cellEnd
@@ -5321,6 +5333,29 @@ module atm_time_integration
             end do
 
          end if ! 4th order mixing is active 
+
+        else  ! new routine for mixing theta and scalars
+
+         mix_scalars = .true.
+         if(dynamics_substep > 1) mix_scalars = .false.
+
+         call scalar_horizontal_dissipation( cellStart, cellEnd, cellSolveStart, cellSolveEnd,         &
+                                             nCells, nEdges,                                           &
+                                             nEdgesOnCell, edgesOnCell, cellsOnEdge, edgesOnCell_sign, &
+                                             invAreaCell, invDcEdge, dvEdge,                           &
+                                             meshScalingDel2, meshScalingDel4,                         &
+                                             config_mix_full, t_init, zgrid,                           &
+                                             rdzw, rdzu, fzm, fzp,                                     &
+                                             v_theta_eddy_visc2, h_theta_eddy_visc4, prandtl_inv,      &
+                                             delsq_theta,                                              &
+                                             theta_m, rho_edge, rho_zz, zz,                            &
+                                             kdiff,                                                    &
+                                             config_len_disp, scalars, tend_scalars,                   &
+                                             mix_scalars,                                              &
+                                             tend_theta_euler                                         )
+
+       end if ! inline or new theta-scalar mixing
+
 
       end if ! theta mixing calculated first rk_step
 
@@ -7016,5 +7051,194 @@ module atm_time_integration
       end if
 
    end subroutine summarize_timestep
+
+      subroutine scalar_horizontal_dissipation( cellStart, cellEnd, cellSolveStart, cellSolveEnd,         &
+                                                nCells, nEdges,                                           &
+                                                nEdgesOnCell, edgesOnCell, cellsOnEdge, edgesOnCell_sign, &
+                                                invAreaCell, invDcEdge, dvEdge,                           &
+                                                meshScalingDel2, meshScalingDel4,                         &
+                                                config_mix_full, t_init, zgrid,                           &
+                                                rdzw, rdzu, fzm, fzp,                                     &
+                                                v_theta_eddy_visc2, h_theta_eddy_visc4, prandtl_inv,      &
+                                                delsq_theta,                                              &
+                                                theta_m, rho_edge, rho_zz, zz,                            &
+                                                eddy_visc_horz,                                           &
+                                                config_len_disp, scalars, tend_scalars,                   &
+                                                mix_scalars,                                              &
+                                                tend_theta_euler                                         )
+
+
+      ! 3D theta_m dissipation using the 3D smagorinsky eddy viscosities.  
+      ! This routine also includes the simpler mixing models, and the 4th-order horizontal filter
+
+      use mpas_atm_dimensions  !  pull nVertLevels and maxEdges from here                                                                             
+      implicit none
+
+      integer, intent(in) :: cellStart, cellEnd
+      integer, intent(in) :: cellSolveStart, cellSolveEnd
+      integer, intent(in) :: nCells, nEdges
+
+      logical, intent(in) :: config_mix_full, mix_scalars
+
+      integer, dimension(nCells+1), intent(in) :: nEdgesOnCell
+      integer, dimension(maxEdges,nCells+1), intent(in) :: EdgesOnCell
+
+      integer, dimension(2,nEdges+1), intent(in) :: cellsOnEdge
+
+      real (kind=RKIND), intent(in) :: h_theta_eddy_visc4
+      real (kind=RKIND), intent(in) :: v_theta_eddy_visc2
+      real (kind=RKIND), intent(in) :: prandtl_inv
+      real (kind=RKIND), intent(in) :: config_len_disp
+
+      real (kind=RKIND), dimension(maxEdges,nCells+1), intent(in) :: edgesOnCell_sign
+      real (kind=RKIND), dimension(nCells+1), intent(in) :: invAreaCell
+      real (kind=RKIND), dimension(nEdges+1), intent(in) :: dvEdge
+      real (kind=RKIND), dimension(nEdges+1), intent(in) :: invDcEdge
+      real (kind=RKIND), dimension(nEdges+1), intent(in) :: meshScalingDel2
+      real (kind=RKIND), dimension(nEdges+1), intent(in) :: meshScalingDel4
+      real (kind=RKIND), dimension(nVertLevels), intent(in) :: rdzw
+      real (kind=RKIND), dimension(nVertLevels), intent(in) :: rdzu
+      real (kind=RKIND), dimension(nVertLevels), intent(in) :: fzm
+      real (kind=RKIND), dimension(nVertLevels), intent(in) :: fzp
+      real (kind=RKIND), dimension(nVertLevels+1, nCells+1), intent(in) :: zgrid
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(in) :: zz
+
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(in) :: t_init
+
+      real (kind=RKIND), dimension(num_scalars,nVertLevels,nCells+1), intent(in) :: scalars
+      real (kind=RKIND), dimension(num_scalars,nVertLevels,nCells+1), intent(inout) :: tend_scalars
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(in) :: theta_m
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(in) :: eddy_visc_horz
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(in) :: rho_zz
+      real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(in) :: rho_edge
+
+      real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(inout) :: tend_theta_euler
+
+      ! storage passed in from calling routine                                                                                                        
+      real (kind=RKIND), dimension(nVertLevels,nCells+1) :: delsq_theta
+
+      ! local variables                                                                                                                               
+      integer :: cell1, cell2, iEdge, iCell, i, k, iScalar
+      real (kind=RKIND) :: r_areaCell, edge_sign, theta_turb_flux, pr_scale
+
+      logical, parameter :: hmix_scalars = .true.
+      logical, parameter :: hmix4_scalars = .true.
+      logical, parameter :: debug_dissipation = .true.
+
+        if(debug_dissipation) then
+            call mpas_log_write(' begin scalar horizontal dissipation ')
+            call mpas_log_write(' 4th order hyperviscosity is $r ', realArgs=(/h_theta_eddy_visc4/))
+        end if
+
+         if(debug_dissipation) call mpas_log_write(' 2nd-order theta mixing ')
+         delsq_theta(1:nVertLevels,cellStart:cellEnd) = 0.0
+
+         do iCell=cellStart,cellEnd
+            tend_theta_euler(1:nVertLevels,iCell) = 0.0
+            r_areaCell = invAreaCell(iCell)
+            do i=1,nEdgesOnCell(iCell)
+               iEdge = edgesOnCell(i,iCell)
+               edge_sign = r_areaCell*edgesOnCell_sign(i,iCell) * dvEdge(iEdge) * invDcEdge(iEdge)
+               pr_scale = prandtl_inv * meshScalingDel2(iEdge)
+               cell1 = cellsOnEdge(1,iEdge)
+               cell2 = cellsOnEdge(2,iEdge)
+!DIR$ IVDEP
+               do k=1,nVertLevels
+
+!  we are computing the Smagorinsky filter at more points than needed here so as to pick up the delsq_theta for 4th order filter below.
+!  This is in conservative form.
+
+                  theta_turb_flux = edge_sign*(theta_m(k,cell2) - theta_m(k,cell1))*rho_edge(k,iEdge)
+                  delsq_theta(k,iCell) = delsq_theta(k,iCell) + theta_turb_flux
+                  theta_turb_flux = theta_turb_flux*0.5*(eddy_visc_horz(k,cell1)+eddy_visc_horz(k,cell2)) * pr_scale
+                  tend_theta_euler(k,iCell) = tend_theta_euler(k,iCell) + theta_turb_flux
+
+               end do
+            end do
+          end do
+
+!$OMP BARRIER
+            
+         if (h_theta_eddy_visc4 > 0.0) then  ! 4th order mixing is active
+
+            if(debug_dissipation) call mpas_log_write(' 4th-order theta mixing ')
+            do iCell=cellSolveStart,cellSolveEnd    ! Technically updating fewer cells than before...
+               r_areaCell = h_theta_eddy_visc4 * prandtl_inv * invAreaCell(iCell)
+               do i=1,nEdgesOnCell(iCell)
+
+                  iEdge = edgesOnCell(i,iCell)
+                  edge_sign = meshScalingDel4(iEdge)*r_areaCell*dvEdge(iEdge)*edgesOnCell_sign(i,iCell)*invDcEdge(iEdge)
+
+                  cell1 = cellsOnEdge(1,iEdge)
+                  cell2 = cellsOnEdge(2,iEdge)
+
+                  do k=1,nVertLevels
+                     tend_theta_euler(k,iCell) = tend_theta_euler(k,iCell) - edge_sign*(delsq_theta(k,cell2) - delsq_theta(k,cell1))
+                  end do
+               end do
+            end do
+
+         end if ! 4th order mixing is active 
+
+       if(mix_scalars .and. hmix_scalars) then  ! dissipation for scalars, including 4th-order filter.  Likely needs optimization
+         
+         if(debug_dissipation) call mpas_log_write(' 2nd-order scalar mixing ')
+         if(debug_dissipation .and. (h_theta_eddy_visc4 > 0.0) .and. hmix4_scalars) call mpas_log_write(' 4th-order scalar mixing ')
+
+         do iScalar=1,num_scalars
+
+         delsq_theta(1:nVertLevels,cellStart:cellEnd) = 0.0
+
+         do iCell=cellStart,cellEnd
+            ! tend_theta_euler(1:nVertLevels,iCell) = 0.0
+            r_areaCell = invAreaCell(iCell)
+            do i=1,nEdgesOnCell(iCell)
+               iEdge = edgesOnCell(i,iCell)
+               edge_sign = r_areaCell*edgesOnCell_sign(i,iCell) * dvEdge(iEdge) * invDcEdge(iEdge)
+               pr_scale = prandtl_inv * meshScalingDel2(iEdge)
+               cell1 = cellsOnEdge(1,iEdge)
+               cell2 = cellsOnEdge(2,iEdge)
+!DIR$ IVDEP
+               do k=1,nVertLevels
+
+!  we are computing the Smagorinsky filter at more points than needed here so as to pick up the delsq_theta for 4th order filter below.
+!  This is in conservative form.
+
+                  theta_turb_flux = edge_sign*(scalars(iScalar,k,cell2) - scalars(iScalar,k,cell1))*rho_edge(k,iEdge)
+                  delsq_theta(k,iCell) = delsq_theta(k,iCell) + theta_turb_flux
+                  theta_turb_flux = theta_turb_flux*0.5*(eddy_visc_horz(k,cell1)+eddy_visc_horz(k,cell2)) * pr_scale
+                  tend_scalars(iScalar,k,iCell) = tend_scalars(iScalar,k,iCell) + theta_turb_flux
+
+               end do
+            end do
+          end do
+
+!$OMP BARRIER
+            
+         if ((h_theta_eddy_visc4 > 0.0) .and. hmix4_scalars) then  ! 4th order mixing is active
+
+            do iCell=cellSolveStart,cellSolveEnd    ! Technically updating fewer cells than before...
+               r_areaCell = h_theta_eddy_visc4 * prandtl_inv * invAreaCell(iCell)
+               do i=1,nEdgesOnCell(iCell)
+
+                  iEdge = edgesOnCell(i,iCell)
+                  edge_sign = meshScalingDel4(iEdge)*r_areaCell*dvEdge(iEdge)*edgesOnCell_sign(i,iCell)*invDcEdge(iEdge)
+
+                  cell1 = cellsOnEdge(1,iEdge)
+                  cell2 = cellsOnEdge(2,iEdge)
+
+                  do k=1,nVertLevels
+                     tend_scalars(iScalar,k,iCell) = tend_scalars(iScalar,k,iCell) - edge_sign*(delsq_theta(k,cell2) - delsq_theta(k,cell1))
+                  end do
+               end do
+            end do
+
+         end if ! 4th order mixing is active 
+         
+        end do ! loop over scalars for horizontal mixing
+
+      end if ! horizontal scalar mixing
+
+      end subroutine scalar_horizontal_dissipation
 
 end module atm_time_integration
