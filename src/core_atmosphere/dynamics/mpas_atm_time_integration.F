@@ -51,7 +51,6 @@ module atm_time_integration
    real (kind=RKIND), dimension(:,:,:), allocatable :: scale_array
    real (kind=RKIND), dimension(:,:), allocatable :: flux_array
    real (kind=RKIND), dimension(:,:), allocatable :: flux_upwind_tmp_arr
-   real (kind=RKIND), dimension(:,:), allocatable :: flux_tmp_arr
    real (kind=RKIND), dimension(:,:), allocatable :: wdtn_arr
    real (kind=RKIND), dimension(:,:), allocatable :: rho_zz_int
    real (kind=RKIND), dimension(:,:,:), allocatable :: scalar_tend_array
@@ -1047,8 +1046,6 @@ module atm_time_integration
                   else
                      allocate(flux_upwind_tmp_arr(nVertLevels,nEdges+1))
                      flux_upwind_tmp_arr(:,nEdges+1) = 0.0_RKIND
-                     allocate(flux_tmp_arr(nVertLevels,nEdges+1))
-                     flux_tmp_arr(:,nEdges+1) = 0.0_RKIND
                   end if
 
                   !
@@ -1079,7 +1076,7 @@ module atm_time_integration
                                                 vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread), &
                                                 edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread), &
                                                 scalar_old_arr, scalar_new_arr, s_max_arr, s_min_arr, wdtn_arr, &
-                                                scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, config_monotonic, &
+                                                scale_array, flux_array, flux_upwind_tmp_arr, config_monotonic, &
                                                 advance_density=.false.)
                      end if
                   end do
@@ -1096,7 +1093,6 @@ module atm_time_integration
                      deallocate(horiz_flux_array)
                   else
                      deallocate(flux_upwind_tmp_arr)
-                     deallocate(flux_tmp_arr)
                   end if
 
                   block => block % next
@@ -1422,8 +1418,6 @@ module atm_time_integration
                else
                   allocate(flux_upwind_tmp_arr(nVertLevels,nEdges+1))
                   flux_upwind_tmp_arr(:,nEdges+1) = 0.0_RKIND
-                  allocate(flux_tmp_arr(nVertLevels,nEdges+1))
-                  flux_tmp_arr(:,nEdges+1) = 0.0_RKIND
                end if
 
                !
@@ -1457,7 +1451,7 @@ module atm_time_integration
                                              vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread), &
                                              edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread), &
                                              scalar_old_arr, scalar_new_arr, s_max_arr, s_min_arr, wdtn_arr, &
-                                             scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, config_monotonic, &
+                                             scale_array, flux_array, flux_upwind_tmp_arr, config_monotonic, &
                                              advance_density=.true., rho_zz_int=rho_zz_int)
                   end if
                end do
@@ -1476,7 +1470,6 @@ module atm_time_integration
                   deallocate(horiz_flux_array)
                else
                   deallocate(flux_upwind_tmp_arr)
-                  deallocate(flux_tmp_arr)
                end if
 
                block => block % next
@@ -3511,7 +3504,7 @@ module atm_time_integration
                                    cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd, &
                                    cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd, &
                                    scalar_old, scalar_new, s_max, s_min, wdtn, scale_arr, flux_arr, &
-                                   flux_upwind_tmp, flux_tmp, config_monotonic, advance_density, rho_zz_int)
+                                   flux_upwind_tmp, config_monotonic, advance_density, rho_zz_int)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
    !
    ! Integrate scalar equations - transport plus other tendencies
@@ -3541,7 +3534,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1), intent(inout) :: wdtn
       real (kind=RKIND), dimension(nVertLevels,2,nCells+1), intent(inout) :: scale_arr
       real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_arr
-      real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_upwind_tmp, flux_tmp
+      real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_upwind_tmp
       logical, intent(in), optional :: advance_density
       real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(inout), optional :: rho_zz_int
 
@@ -3605,7 +3598,7 @@ module atm_time_integration
                                    rho_zz_new, scalars_old, scalars_new, invAreaCell, dvEdge, cellsOnEdge, cellsOnCell, &
                                    edgesOnCell, edgesOnCell_sign, nEdgesOnCell, fnm, fnp, rdnw, nAdvCellsForEdge, &
                                    advCellsForEdge, adv_coefs, adv_coefs_3rd, scalar_old, scalar_new, s_max, s_min, &
-                                   wdtn, scale_arr, flux_arr, flux_upwind_tmp, flux_tmp, &
+                                   wdtn, scale_arr, flux_arr, flux_upwind_tmp, &
                                    bdyMaskCell, bdyMaskEdge, config_monotonic, &
                                    advance_density, rho_zz_int)
 
@@ -3619,7 +3612,7 @@ module atm_time_integration
                                    rho_zz_new, scalars_old, scalars_new, invAreaCell, dvEdge, cellsOnEdge, cellsOnCell, &
                                    edgesOnCell, edgesOnCell_sign, nEdgesOnCell, fnm, fnp, rdnw, nAdvCellsForEdge, &
                                    advCellsForEdge, adv_coefs, adv_coefs_3rd, scalar_old, scalar_new, s_max, s_min, &
-                                   wdtn, scale_arr, flux_arr, flux_upwind_tmp, flux_tmp, &
+                                   wdtn, scale_arr, flux_arr, flux_upwind_tmp, &
                                    bdyMaskCell, bdyMaskEdge, config_monotonic, &
                                    advance_density, rho_zz_int)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
@@ -3692,7 +3685,7 @@ module atm_time_integration
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1), intent(inout) :: wdtn
       real (kind=RKIND), dimension(nVertLevels,2,nCells+1), intent(inout), target :: scale_arr
       real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_arr
-      real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_upwind_tmp, flux_tmp
+      real (kind=RKIND), dimension(nVertLevels,nEdges+1), intent(inout) :: flux_upwind_tmp
       type (field3DReal), pointer :: scalars_old_field
 
       type (field3DReal), pointer :: tempField
@@ -3713,6 +3706,8 @@ module atm_time_integration
       real (kind=RKIND) :: flux3, flux4, flux_upwind
       real (kind=RKIND) :: q_im2, q_im1, q_i, q_ip1, ua, coef3, scmin,scmax
       real (kind=RKIND) :: scale_factor
+
+      ! tmp local storage for testing
 
       logical :: local_advance_density
 
@@ -4040,12 +4035,11 @@ module atm_time_integration
             do k=1, nVertLevels
                flux_upwind_tmp(k,iEdge) = dvEdge(iEdge) * dt *   &
                       (max(0.0_RKIND,uhAvg(k,iEdge))*scalar_old(k,cell1) + min(0.0_RKIND,uhAvg(k,iEdge))*scalar_old(k,cell2))
-               flux_tmp(k,iEdge) = dt * flux_arr(k,iEdge) - flux_upwind_tmp(k,iEdge)
+               flux_arr(k,iEdge) = dt * flux_arr(k,iEdge) - flux_upwind_tmp(k,iEdge)
             end do
 
             if( config_apply_lbcs .and. (bdyMaskEdge(iEdge) == nRelaxZone) .or. (bdyMaskEdge(iEdge) == nRelaxZone-1) ) then
-               flux_tmp(:,iEdge) = 0.
-               flux_arr(:,iEdge) = flux_upwind_tmp(:,iEdge)
+                 flux_arr(:,iEdge) = 0.
             end if
 
          end do
@@ -4059,9 +4053,9 @@ module atm_time_integration
                   scalar_new(k,iCell) = scalar_new(k,iCell) - edgesOnCell_sign(i,iCell) * flux_upwind_tmp(k,iEdge) * invAreaCell(iCell)
  
                   scale_arr(k,SCALE_OUT,iCell) = scale_arr(k,SCALE_OUT,iCell) &
-                                                 - max(0.0_RKIND,edgesOnCell_sign(i,iCell)*flux_tmp(k,iEdge)) * invAreaCell(iCell)
+                                                 - max(0.0_RKIND,edgesOnCell_sign(i,iCell)*flux_arr(k,iEdge)) * invAreaCell(iCell)
                   scale_arr(k,SCALE_IN, iCell) = scale_arr(k,SCALE_IN, iCell) &
-                                                 - min(0.0_RKIND,edgesOnCell_sign(i,iCell)*flux_tmp(k,iEdge)) * invAreaCell(iCell)
+                                                 - min(0.0_RKIND,edgesOnCell_sign(i,iCell)*flux_arr(k,iEdge)) * invAreaCell(iCell)
                end do
 
             end do
@@ -4127,24 +4121,6 @@ module atm_time_integration
          call mpas_dmpar_exch_halo_field(tempField, (/ 1 /))
 !$OMP END MASTER
 !$OMP BARRIER
-
-         do iEdge=edgeStart,edgeEnd
-            cell1 = cellsOnEdge(1,iEdge)
-            cell2 = cellsOnEdge(2,iEdge)
-            if (cell1 <= nCellsSolve .or. cell2 <= nCellsSolve) then  ! only for owned cells
-!DIR$ IVDEP
-               do k=1, nVertLevels
-                  flux_upwind = dvEdge(iEdge) * dt *   &
-                         (max(0.0_RKIND,uhAvg(k,iEdge))*scalar_old(k,cell1) + min(0.0_RKIND,uhAvg(k,iEdge))*scalar_old(k,cell2))
-                  flux_arr(k,iEdge) = dt*flux_arr(k,iEdge) - flux_upwind
-               end do
-
-               if( config_apply_lbcs .and. (bdyMaskEdge(iEdge) == nRelaxZone) .or. (bdyMaskEdge(iEdge) == nRelaxZone-1) ) then
-                  flux_arr(:,iEdge) = 0.
-               end if
-
-            end if
-         end do
 
          !
          !  rescale the fluxes
