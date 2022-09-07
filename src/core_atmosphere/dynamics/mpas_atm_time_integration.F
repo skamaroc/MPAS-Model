@@ -1079,7 +1079,7 @@ module atm_time_integration
                                                 vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread), &
                                                 edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread), &
                                                 scalar_old_arr, scalar_new_arr, s_max_arr, s_min_arr, wdtn_arr, &
-                                                scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, &
+                                                scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, config_monotonic, &
                                                 advance_density=.false.)
                      end if
                   end do
@@ -1457,7 +1457,7 @@ module atm_time_integration
                                              vertexSolveThreadStart(thread), vertexSolveThreadEnd(thread), &
                                              edgeSolveThreadStart(thread), edgeSolveThreadEnd(thread), &
                                              scalar_old_arr, scalar_new_arr, s_max_arr, s_min_arr, wdtn_arr, &
-                                             scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, &
+                                             scale_array, flux_array, flux_upwind_tmp_arr, flux_tmp_arr, config_monotonic, &
                                              advance_density=.true., rho_zz_int=rho_zz_int)
                   end if
                end do
@@ -3511,7 +3511,7 @@ module atm_time_integration
                                    cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd, &
                                    cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd, &
                                    scalar_old, scalar_new, s_max, s_min, wdtn, scale_arr, flux_arr, &
-                                   flux_upwind_tmp, flux_tmp, advance_density, rho_zz_int)
+                                   flux_upwind_tmp, flux_tmp, config_monotonic, advance_density, rho_zz_int)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
    !
    ! Integrate scalar equations - transport plus other tendencies
@@ -3564,6 +3564,8 @@ module atm_time_integration
       integer, dimension(:), pointer :: nEdgesOnCell
       real (kind=RKIND), pointer :: coef_3rd_order
 
+      logical, intent(in):: config_monotonic
+
       call mpas_pool_get_config(configs, 'config_coef_3rd_order', coef_3rd_order)
 
       call mpas_pool_get_dimension(mesh, 'nCellsSolve', nCellsSolve)
@@ -3604,7 +3606,7 @@ module atm_time_integration
                                    edgesOnCell, edgesOnCell_sign, nEdgesOnCell, fnm, fnp, rdnw, nAdvCellsForEdge, &
                                    advCellsForEdge, adv_coefs, adv_coefs_3rd, scalar_old, scalar_new, s_max, s_min, &
                                    wdtn, scale_arr, flux_arr, flux_upwind_tmp, flux_tmp, &
-                                   bdyMaskCell, bdyMaskEdge, &
+                                   bdyMaskCell, bdyMaskEdge, config_monotonic, &
                                    advance_density, rho_zz_int)
 
    end subroutine atm_advance_scalars_mono
@@ -3618,7 +3620,7 @@ module atm_time_integration
                                    edgesOnCell, edgesOnCell_sign, nEdgesOnCell, fnm, fnp, rdnw, nAdvCellsForEdge, &
                                    advCellsForEdge, adv_coefs, adv_coefs_3rd, scalar_old, scalar_new, s_max, s_min, &
                                    wdtn, scale_arr, flux_arr, flux_upwind_tmp, flux_tmp, &
-                                   bdyMaskCell, bdyMaskEdge, &
+                                   bdyMaskCell, bdyMaskEdge, config_monotonic, &
                                    advance_density, rho_zz_int)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
    !
@@ -3661,6 +3663,7 @@ module atm_time_integration
       real (kind=RKIND), intent(in)        :: dt
       integer, intent(in) :: cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd
       integer, intent(in) :: cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd
+      logical, intent(in) :: config_monotonic
       logical, intent(in), optional :: advance_density
       real (kind=RKIND), dimension(nVertLevels,nCells+1), intent(inout), optional :: rho_zz_int
 
@@ -3839,7 +3842,7 @@ module atm_time_integration
 
 
          !
-         !  vertical flux divergence, and min and max bounds for flux limiter
+         !  vertical flux divergence
          !
          do iCell=cellSolveStart,cellSolveEnd
 
@@ -3847,26 +3850,43 @@ module atm_time_integration
             wdtn(1,iCell) = 0.0
             wdtn(nVertLevels+1,iCell) = 0.0
 
-            k = 1
-            s_max(k,iCell) = max(scalar_old(1,iCell),scalar_old(2,iCell))
-            s_min(k,iCell) = min(scalar_old(1,iCell),scalar_old(2,iCell))
-
             k = 2
             wdtn(k,iCell) = wwAvg(k,iCell)*(fnm(k)*scalar_new(k,iCell)+fnp(k)*scalar_new(k-1,iCell))
-            s_max(k,iCell) = max(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
-            s_min(k,iCell) = min(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
              
 !DIR$ IVDEP
             do k=3,nVertLevels-1
                wdtn(k,iCell) = flux3( scalar_new(k-2,iCell),scalar_new(k-1,iCell),  &
                                       scalar_new(k  ,iCell),scalar_new(k+1,iCell),  &
                                       wwAvg(k,iCell), coef_3rd_order )
+            end do
+ 
+            k = nVertLevels
+            wdtn(k,iCell) = wwAvg(k,iCell)*(fnm(k)*scalar_new(k,iCell)+fnp(k)*scalar_new(k-1,iCell))
+
+         end do
+
+
+         if (config_monotonic) then
+         !
+         !  min and max bounds for flux limiter
+         !
+         do iCell=cellSolveStart,cellSolveEnd
+
+            k = 1
+            s_max(k,iCell) = max(scalar_old(1,iCell),scalar_old(2,iCell))
+            s_min(k,iCell) = min(scalar_old(1,iCell),scalar_old(2,iCell))
+
+            k = 2
+            s_max(k,iCell) = max(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
+            s_min(k,iCell) = min(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
+             
+!DIR$ IVDEP
+            do k=3,nVertLevels-1
                s_max(k,iCell) = max(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
                s_min(k,iCell) = min(scalar_old(k-1,iCell),scalar_old(k,iCell),scalar_old(k+1,iCell))
             end do
  
             k = nVertLevels
-            wdtn(k,iCell) = wwAvg(k,iCell)*(fnm(k)*scalar_new(k,iCell)+fnp(k)*scalar_new(k-1,iCell))
             s_max(k,iCell) = max(scalar_old(k,iCell),scalar_old(k-1,iCell))
             s_min(k,iCell) = min(scalar_old(k,iCell),scalar_old(k-1,iCell))
 
@@ -3907,6 +3927,14 @@ module atm_time_integration
             end select
 
          end do
+
+         else 
+
+           s_max(:,:) = 1.e+15
+           s_min(:,:) = 0.0
+
+         end if ! config_monotonic
+
 
 !$OMP BARRIER
 
@@ -7207,7 +7235,7 @@ module atm_time_integration
                   theta_turb_flux = edge_sign*(scalars(iScalar,k,cell2) - scalars(iScalar,k,cell1))*rho_edge(k,iEdge)
                   delsq_theta(k,iCell) = delsq_theta(k,iCell) + theta_turb_flux
                   theta_turb_flux = theta_turb_flux*0.5*(eddy_visc_horz(k,cell1)+eddy_visc_horz(k,cell2)) * pr_scale
-                  tend_scalars(iScalar,k,iCell) = tend_scalars(iScalar,k,iCell) + theta_turb_flux
+                  !! tend_scalars(iScalar,k,iCell) = tend_scalars(iScalar,k,iCell) + theta_turb_flux
 
                end do
             end do
