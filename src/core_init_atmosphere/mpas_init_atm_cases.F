@@ -2598,6 +2598,8 @@ module init_atm_cases
       real (kind=RKIND), dimension(:,:,:), pointer :: deriv_two
 
       real (kind=RKIND) :: target_z
+      real (kind=RKIND), dimension(nVertLevels) :: target_zk
+
       integer :: iCell, iCell1, iCell2 , iEdge, vtx1, vtx2, ivtx, i, k, nz, itr, itrp, cell1, cell2
       integer, pointer :: nCellsSolve, nz1
       integer :: nInterpPoints, ndims
@@ -4647,7 +4649,14 @@ call mpas_log_write('Done with soil consistency check')
          end do
          call mpas_quicksort(nfglevels_actual, sorted_arr)
          do k=1,nVertLevels
-            target_z = 0.25 * (zgrid(k,cellsOnEdge(1,iEdge)) + zgrid(k+1,cellsOnEdge(1,iEdge)) + zgrid(k,cellsOnEdge(2,iEdge)) + zgrid(k+1,cellsOnEdge(2,iEdge)))
+            target_zk(k) = 0.25 * (zgrid(k,cellsOnEdge(1,iEdge)) + zgrid(k+1,cellsOnEdge(1,iEdge)) + zgrid(k,cellsOnEdge(2,iEdge)) + zgrid(k+1,cellsOnEdge(2,iEdge)))
+         end do
+
+         call adjust_zk(target_zk, nVertLevels, sorted_arr(:,1:nfglevels_actual-1), nfglevels_actual-1)
+
+         do k=1,nVertLevels
+             target_z = target_zk(k)
+!            target_z = 0.25 * (zgrid(k,cellsOnEdge(1,iEdge)) + zgrid(k+1,cellsOnEdge(1,iEdge)) + zgrid(k,cellsOnEdge(2,iEdge)) + zgrid(k+1,cellsOnEdge(2,iEdge)))
 !           u(k,iEdge) = vertical_interp(target_z, nfglevels_actual, sorted_arr, order=1, extrap=0)
             u(k,iEdge) = vertical_interp(target_z, nfglevels_actual-1, sorted_arr(:,1:nfglevels_actual-1), order=1, extrap=1)
          end do
@@ -6460,5 +6469,28 @@ call mpas_log_write('Done with soil consistency check')
 
    end function read_text_array
 
+   subroutine adjust_zk(z, nVertLevels, fg, n)
+   implicit none
+
+   integer :: nVertLevels, n
+   
+   real (kind=RKIND), dimension(nVertLevels) :: z
+   real (kind=RKIND), dimension(2,n) :: fg
+
+   real (kind=RKIND), dimension(nVertLevels) :: z_afg
+   real (kind=RKIND) :: zdiff
+   integer :: k, kk
+
+   zdiff = max(0.,z(1) - fg(1,1))
+
+   do k=1,nVertLevels
+     z_afg(k) = z(k) - zdiff
+   end do
+
+   do k=1,20
+     z(k) = z(k)*(real(k-1)/20.) + z_afg(k)*(real(20-k+1)/20.)
+   end do
+
+   end subroutine adjust_zk
 
 end module init_atm_cases
