@@ -765,13 +765,12 @@ module atm_time_integration
       character (len=StrKIND), pointer :: config_time_integration
       logical, pointer :: config_apply_lbcs_ptr
 
-
       clock => domain % clock
       block => domain % blocklist
 
       call mpas_pool_get_config(block % configs, 'config_time_integration', config_time_integration)
       call mpas_pool_get_config(block % configs, 'config_apply_lbcs', config_apply_lbcs_ptr)
-
+      
       config_apply_lbcs = config_apply_lbcs_ptr
 
       if (trim(config_time_integration) == 'SRK3') then
@@ -882,7 +881,7 @@ module atm_time_integration
 
       real (kind=RKIND)  :: time_dyn_step
       logical, parameter :: debug = .false.
-
+      real (kind=RKIND), pointer :: config_w_lbc_amplitude_factor
 
       !
       ! Retrieve configuration options
@@ -892,10 +891,12 @@ module atm_time_integration
       call mpas_pool_get_config(block % configs, 'config_scalar_advection', config_scalar_advection)
       call mpas_pool_get_config(block % configs, 'config_positive_definite', config_positive_definite)
       call mpas_pool_get_config(block % configs, 'config_monotonic', config_monotonic)
-      call mpas_pool_get_config(block % configs, 'config_IAU_option', config_IAU_option)
+      call mpas_pool_get_config(block % configs, 'config_IAU_option', config_IAU_option) 
       !  config variables for dynamics-transport splitting, WCS 18 November 2014
       call mpas_pool_get_config(block % configs, 'config_split_dynamics_transport', config_split_dynamics_transport)
       call mpas_pool_get_config(block % configs, 'config_dynamics_split_steps', config_dynamics_split)
+      !  config variable for regional w lbc
+      call mpas_pool_get_config(block % configs, 'config_w_lbc_amplitude_factor', config_w_lbc_amplitude_factor)
       !  config variables for cloud microphysics
 #ifdef DO_PHYSICS
       call mpas_pool_get_config(block % configs, 'config_microp_scheme', config_microp_scheme)
@@ -1478,7 +1479,7 @@ module atm_time_integration
 
 !$OMP PARALLEL DO
               do thread=1,nThreads
-                 call atm_zero_gradient_w_bdy( state, mesh, &
+                 call atm_zero_gradient_w_bdy( state, mesh, config_w_lbc_amplitude_factor, &
                                                cellSolveThreadStart(thread), cellSolveThreadEnd(thread) )
               end do
 !$OMP END PARALLEL DO
@@ -7195,7 +7196,7 @@ module atm_time_integration
 !
 ! these next 2 routines set an approximate zero gradient boundary condition for w for regional_MPAS
 !   
-   subroutine atm_zero_gradient_w_bdy( state, mesh, cellSolveStart, cellSolveEnd )
+   subroutine atm_zero_gradient_w_bdy( state, mesh, config_w_lbc_amplitude_factor, cellSolveStart, cellSolveEnd )
 
       ! reconstitute state variables from acoustic-step perturbation variables 
       ! after the acoustic steps.  The perturbation variables were originally set in
@@ -7207,6 +7208,7 @@ module atm_time_integration
       type (mpas_pool_type), intent(inout) :: state
       type (mpas_pool_type), intent(inout) :: mesh
       integer, intent(in) :: cellSolveStart, cellSolveEnd
+      real (kind=RKIND), intent(in) :: config_w_lbc_amplitude_factor
 
       real (kind=RKIND), dimension(:,:), pointer :: w
 
@@ -7218,13 +7220,15 @@ module atm_time_integration
       call mpas_pool_get_array(mesh, 'nearestRelaxationCell', nearestRelaxationCell)
       call mpas_pool_get_dimension(mesh, 'nCells', nCells)
       
-      call atm_zero_gradient_w_bdy_work( w, bdyMaskCell, nearestRelaxationCell, nCells, cellSolveStart, cellSolveEnd )
+      call atm_zero_gradient_w_bdy_work( w, bdyMaskCell, nearestRelaxationCell, &
+                                         config_w_lbc_amplitude_factor, nCells, cellSolveStart, cellSolveEnd )
 
    end subroutine atm_zero_gradient_w_bdy
 
 !-------------------------------------------------------------------------
 
-   subroutine atm_zero_gradient_w_bdy_work( w, bdyMaskCell, nearestRelaxationCell, nCells, cellSolveStart, cellSolveEnd )
+   subroutine atm_zero_gradient_w_bdy_work( w, bdyMaskCell, nearestRelaxationCell, &
+                                            config_w_lbc_amplitude_factor, nCells, cellSolveStart, cellSolveEnd )
 
       use mpas_atm_dimensions
 
@@ -7236,6 +7240,7 @@ module atm_time_integration
       integer, intent(in) :: cellSolveStart, cellSolveEnd, nCells
       integer, dimension(nCells+1), intent(in) :: bdyMaskCell, nearestRelaxationCell
       real (kind=RKIND), dimension(nVertLevels+1,nCells+1), intent(inout) :: w
+      real (kind=RKIND), intent(in) :: config_w_lbc_amplitude_factor
 
       ! local variables
 
@@ -7245,6 +7250,8 @@ module atm_time_integration
       !$acc enter data copyin(w)
       MPAS_ACC_TIMER_STOP('atm_zero_gradient_w_bdy_work [ACC_data_xfer]')
 
+      ! call mpas_log_write(' applying config_w_lbc_amplitude_factor  = $r', realArgs=(/config_w_lbc_amplitude_factor/))
+
       !$acc parallel default(present)
       !$acc loop gang worker
       do iCell=cellSolveStart,cellSolveEnd
@@ -7252,8 +7259,8 @@ module atm_time_integration
 !DIR$ IVDEP
             !$acc loop vector
             do k = 2, nVertLevels
-               ! w(k,iCell) = w(k,nearestRelaxationCell(iCell))
-               w(k,iCell) = 0.0  ! WCS fix for instabilities caused by zero-gradient condition on inflow, 20240806
+               w(k,iCell) = config_w_lbc_amplitude_factor * w(k,nearestRelaxationCell(iCell))
+               !! w(k,iCell) = 0.0  ! WCS fix for instabilities caused by zero-gradient condition on inflow, 20240806
             end do
          end if  
       end do
