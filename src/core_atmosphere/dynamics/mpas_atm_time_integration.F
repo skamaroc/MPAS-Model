@@ -4830,6 +4830,7 @@ module atm_time_integration
       real (kind=RKIND), pointer :: config_rayleigh_damp_u_timescale_days
       integer, pointer :: config_number_rayleigh_damp_u_levels, config_number_cam_damping_levels
 
+      integer, dimension(:), pointer :: bdyMaskCell
 
       call mpas_pool_get_config(mesh, 'sphere_radius', r_earth)
       call mpas_pool_get_config(configs, 'config_coef_3rd_order', coef_3rd_order)
@@ -4919,6 +4920,8 @@ module atm_time_integration
       call mpas_pool_get_array(mesh, 'fzp', fzp)
       call mpas_pool_get_array(mesh, 'zgrid', zgrid)
 
+      call mpas_pool_get_array(mesh, 'bdyMaskCell', bdyMaskCell)
+
       call mpas_pool_get_array(tend, 'u', tend_u)
       call mpas_pool_get_array(tend, 'theta_m', tend_theta)
       call mpas_pool_get_array(tend, 'w', tend_w)
@@ -4958,6 +4961,7 @@ module atm_time_integration
 
       call atm_compute_dyn_tend_work(nCells, nEdges, nVertices, nVertLevels, &
          nCellsSolve, nEdgesSolve, vertexDegree, maxEdges, maxEdges2, num_scalars, moist_start, moist_end, &
+         bdyMaskCell, &  
          fEdge, dvEdge, dcEdge, invDcEdge, invDvEdge, invAreaCell, invAreaTriangle, meshScalingDel2, meshScalingDel4, &
          weightsOnEdge, zgrid, rho_edge, rho_zz, ru, u, v, tend_u, &
          divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
@@ -4982,6 +4986,7 @@ module atm_time_integration
 
    subroutine atm_compute_dyn_tend_work(nCells, nEdges, nVertices, nVertLevels_dummy, &
       nCellsSolve, nEdgesSolve, vertexDegree, maxEdges_dummy, maxEdges2_dummy, num_scalars_dummy, moist_start, moist_end, &
+      bdyMaskCell, &  
       fEdge, dvEdge, dcEdge, invDcEdge, invDvEdge, invAreaCell, invAreaTriangle, meshScalingDel2, meshScalingDel4, &
       weightsOnEdge, zgrid, rho_edge, rho_zz, ru, u, v, tend_u, &
       divergence, vorticity, ke, pv_edge, theta_m, rw, tend_rho, &
@@ -5073,6 +5078,9 @@ module atm_time_integration
       integer, dimension(vertexDegree,nVertices+1) :: edgesOnVertex
       integer, dimension(nCells+1) :: nEdgesOnCell
       integer, dimension(nEdges+1) :: nEdgesOnEdge
+
+      integer, dimension(nCells+1) :: bdyMaskCell
+
       real (kind=RKIND), dimension(nCells+1) :: latCell
       real (kind=RKIND), dimension(nEdges+1) :: latEdge
       real (kind=RKIND), dimension(nEdges+1) :: angleEdge
@@ -5722,7 +5730,8 @@ module atm_time_integration
          do i=1,nEdgesOnCell(iCell)
 
             iEdge = edgesOnCell(i,iCell)
-            edge_sign = edgesOnCell_sign(i,iCell) * dvEdge(iEdge) * 0.5
+            cell1 = cellsOnEdge(1,iEdge)
+            cell2 = cellsOnEdge(2,iEdge)
 
             !$acc loop vector
             do k=2,nVertLevels
@@ -5734,18 +5743,31 @@ module atm_time_integration
                flux_arr(k) = 0.0_RKIND
             end do
 
-            ! flux_arr stores the value of w at the cell edge used in the horizontal transport
+            if((bdyMaskCell(cell1) .le. 4) .and. (bdyMaskCell(cell2) .le. 4)) then
 
-            !$acc loop seq
-            do j=1,nAdvCellsForEdge(iEdge)
-               iAdvCell = advCellsForEdge(j,iEdge)
+               ! flux_arr stores the value of w at the cell edge used in the horizontal transport
+
+               !$acc loop seq
+               do j=1,nAdvCellsForEdge(iEdge)
+                  iAdvCell = advCellsForEdge(j,iEdge)
+
+                  !$acc loop vector
+                  do k=2,nVertLevels
+                     scalar_weight = adv_coefs(j,iEdge) + sign(1.0_RKIND,ru_edge_w(k)) * adv_coefs_3rd(j,iEdge)
+                     flux_arr(k) = flux_arr(k) + scalar_weight * w(k,iAdvCell)
+                  end do
+               end do
+
+            else
 
                !$acc loop vector
                do k=2,nVertLevels
-                  scalar_weight = adv_coefs(j,iEdge) + sign(1.0_RKIND,ru_edge_w(k)) * adv_coefs_3rd(j,iEdge)
-                  flux_arr(k) = flux_arr(k) + scalar_weight * w(k,iAdvCell)
+                  edge_sign = sign(0.5_RKIND,ru_edge_w(k))
+                  flux_arr(k) = (w(k,cell1)*(0.5_RKIND+edge_sign) + w(k,cell2)*(0.5_RKIND-edge_sign))*dvEdge(iEdge) ! upwind
+                  ! flux_arr(k) = 0.5*(w(k,cell1) + w(k,cell2))*dvEdge(iEdge) ! second-order
                end do
-            end do
+
+            end if
 
 !DIR$ IVDEP
             !$acc loop vector
