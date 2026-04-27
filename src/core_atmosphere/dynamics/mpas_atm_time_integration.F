@@ -2425,6 +2425,7 @@ module atm_time_integration
 !$OMP PARALLEL DO
             do thread=1,nThreads
                call atm_recover_large_step_variables( state, diag, tend, mesh, block % configs, rk_timestep(rk_step), &
+                                          dynamics_substep, dynamics_split,  &
                                           number_sub_steps(rk_step), rk_step, &
                                           cellThreadStart(thread), cellThreadEnd(thread), &
                                           vertexThreadStart(thread), vertexThreadEnd(thread), &
@@ -4193,7 +4194,8 @@ module atm_time_integration
    end subroutine atm_divergence_damping_3d
 
 
-   subroutine atm_recover_large_step_variables( state, diag, tend, mesh, configs, dt, ns, rk_step, &
+   subroutine atm_recover_large_step_variables( state, diag, tend, mesh, configs, dt, &
+                                       dynamics_substep, dynamics_split, ns, rk_step, &
                                        cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd, &
                                        cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd)
 
@@ -4213,6 +4215,8 @@ module atm_time_integration
       real (kind=RKIND), intent(in) :: dt
       integer, intent(in) :: cellStart, cellEnd, vertexStart, vertexEnd, edgeStart, edgeEnd
       integer, intent(in) :: cellSolveStart, cellSolveEnd, vertexSolveStart, vertexSolveEnd, edgeSolveStart, edgeSolveEnd
+
+      integer, intent(in) :: dynamics_substep, dynamics_split
 
 
       real (kind=RKIND), dimension(:,:), pointer :: wwAvg, rw_save, w, rw, rw_p, rtheta_p, rtheta_pp,   &
@@ -4291,7 +4295,8 @@ module atm_time_integration
       call mpas_pool_get_array(mesh, 'cf3', cf3)
 
 
-      call atm_recover_large_step_variables_work(nCells, nEdges, nCellsSolve, nEdgesSolve, dt, ns, rk_step, &
+      call atm_recover_large_step_variables_work(nCells, nEdges, nCellsSolve, nEdgesSolve, dt, &
+                             dynamics_substep, dynamics_split, ns, rk_step, &
                              wwAvg, rw_save, w, rw, rw_p, rtheta_p, rtheta_pp, rtheta_p_save, rt_diabatic_tend, rho_p, &
                              rho_p_save, rho_pp, rho_zz, rho_base, ruAvg, ru_save, ru_p, u, ru, exner, exner_base, &
                              rtheta_base, pressure_p, zz, theta_m, pressure_b, scalars, fzm, fzp, &
@@ -4304,7 +4309,8 @@ module atm_time_integration
    end subroutine atm_recover_large_step_variables
 
 
-   subroutine atm_recover_large_step_variables_work(nCells, nEdges, nCellsSolve, nEdgesSolve, dt, ns, rk_step, &
+   subroutine atm_recover_large_step_variables_work(nCells, nEdges, nCellsSolve, nEdgesSolve, dt, &
+                             dynamics_substep, dynamics_split, ns, rk_step, &
                              wwAvg, rw_save, w, rw, rw_p, rtheta_p, rtheta_pp, rtheta_p_save, rt_diabatic_tend, rho_p, &
                              rho_p_save, rho_pp, rho_zz, rho_base, ruAvg, ru_save, ru_p, u, ru, exner, exner_base, &
                              rtheta_base, pressure_p, zz, theta_m, pressure_b, scalars, fzm, fzp, &
@@ -4324,6 +4330,7 @@ module atm_time_integration
       !
       integer, intent(in) :: nCells, nEdges, nCellsSolve, nEdgesSolve
       integer, intent(in) :: ns, rk_step
+      integer, intent(in) :: dynamics_substep, dynamics_split
       real (kind=RKIND), intent(in) :: dt
 
       integer, dimension(nCells+1), intent(in) :: bdyMaskCell
@@ -4428,13 +4435,19 @@ module atm_time_integration
       !$acc end parallel
 
       if (rk_step == 3) then
+
+         if(dynamics_substep == dynamics_split) then ! we are finishing the dynamics timesteps,
+                                                     ! remove the diabatic contribution
+
+         call mpas_log_write(' end of dynamics steps, removing diabatic tendency from theta')
+
          !$acc parallel default(present)
          !$acc loop collapse(2)
          do iCell=cellStart,cellEnd
 !DIR$ IVDEP
             do k = 1, nVertLevels
                rtheta_p(k,iCell) = rtheta_p_save(k,iCell) + rtheta_pp(k,iCell) &
-                                 - dt * rho_zz(k,iCell) * rt_diabatic_tend(k,iCell)
+                                 - dynamics_split * dt * rho_zz(k,iCell) * rt_diabatic_tend(k,iCell)
                theta_m(k,iCell) = (rtheta_p(k,iCell) + rtheta_base(k,iCell))/rho_zz(k,iCell)
                exner(k,iCell) = (zz(k,iCell)*(rgas/p0)*(rtheta_p(k,iCell)+rtheta_base(k,iCell)))**rcv
                ! pressure_p is perturbation pressure
@@ -4443,6 +4456,26 @@ module atm_time_integration
             end do
          end do
          !$acc end parallel
+
+         else ! more dynamics timesteps to take, do not remove the diabatic tendency in theta
+         
+         !$acc parallel default(present)
+         !$acc loop collapse(2)
+         do iCell=cellStart,cellEnd
+!DIR$ IVDEP
+            do k = 1, nVertLevels
+               rtheta_p(k,iCell) = rtheta_p_save(k,iCell) + rtheta_pp(k,iCell)
+               theta_m(k,iCell) = (rtheta_p(k,iCell) + rtheta_base(k,iCell))/rho_zz(k,iCell)
+               exner(k,iCell) = (zz(k,iCell)*(rgas/p0)*(rtheta_p(k,iCell)+rtheta_base(k,iCell)))**rcv
+               ! pressure_p is perturbation pressure
+               pressure_p(k,iCell) = zz(k,iCell) * rgas * (exner(k,iCell)*rtheta_p(k,iCell)+rtheta_base(k,iCell)  &
+                                                          * (exner(k,iCell)-exner_base(k,iCell)))
+            end do
+         end do
+         !$acc end parallel
+
+         end if
+
       else
          !$acc parallel default(present)
          !$acc loop collapse(2)
